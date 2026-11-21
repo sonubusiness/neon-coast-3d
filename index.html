@@ -570,6 +570,17 @@
           }
         });
       });
+      // Warm light pools under the streetlights
+      for (let gx = -450; gx <= 450; gx += 100) {
+        for (let gz = -450; gz <= 450; gz += 100) {
+          const px = X(gx + 9.8), pz = Z(gz + 9.8);
+          const grad = ctx.createRadialGradient(px, pz, 1, px, pz, 8 * sx);
+          grad.addColorStop(0, 'rgba(255,180,94,0.20)');
+          grad.addColorStop(1, 'rgba(255,180,94,0)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(px - 8 * sx, pz - 8 * sx, 16 * sx, 16 * sx);
+        }
+      }
       const tex = new THREE.CanvasTexture(canvas);
       tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
       return tex;
@@ -642,8 +653,8 @@
           plinth.position.set(x, 0.55, z);
           scene.add(plinth);
           const cap = new THREE.Mesh(buildingGeo, roofMat);
-          cap.scale.set(w + 0.7, 0.6, d + 0.7);
-          cap.position.set(x, h + 0.3, z);
+          cap.scale.set(w + 0.9, 0.85, d + 0.9);
+          cap.position.set(x, h + 0.42, z);
           scene.add(cap);
           if (h > 52) {
             const tower = new THREE.Mesh(buildingGeo, [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat]);
@@ -668,7 +679,7 @@
     const lampMat = new THREE.MeshBasicMaterial({ color: 0xffca7a });
     const poleGeo = new THREE.CylinderGeometry(0.09, 0.13, 5.4, 6);
     const armGeo = new THREE.BoxGeometry(0.12, 0.12, 1.9);
-    const lampGeo = new THREE.SphereGeometry(0.17, 8, 8);
+    const lampGeo = new THREE.SphereGeometry(0.26, 10, 10);
     for (let gx = -450; gx <= 450; gx += 100) {
       for (let gz = -450; gz <= 450; gz += 100) {
         const lampGroup = new THREE.Group();
@@ -679,7 +690,10 @@
         arm.rotation.y = Math.PI / 2;
         const lamp = new THREE.Mesh(lampGeo, lampMat);
         lamp.position.set(-1.7, 5.22, 0);
-        lampGroup.add(pole, arm, lamp);
+        const glowShell = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 10),
+          new THREE.MeshBasicMaterial({ color: 0xffb45e, transparent: true, opacity: 0.16, depthWrite: false }));
+        glowShell.position.copy(lamp.position);
+        lampGroup.add(pole, arm, lamp, glowShell);
         lampGroup.position.set(gx + 11, 0, gz + 11);
         lampGroup.rotation.y = ((gx + gz) / 100 % 2 === 0) ? 0 : Math.PI / 2;
         scene.add(lampGroup);
@@ -1008,7 +1022,7 @@
       for (let i = 1; i < prof.length; i++) bodyShape.lineTo(prof[i][0], prof[i][1]);
       bodyShape.lineTo(prof[0][0], prof[0][1]);
       const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
-        depth: width - 0.12, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2, steps: 1
+        depth: width - 0.12, bevelEnabled: true, bevelThickness: 0.09, bevelSize: 0.09, bevelSegments: 2, steps: 1
       });
       bodyGeo.translate(0, 0, -(width - 0.12) / 2);
       bodyGeo.rotateY(-Math.PI / 2);
@@ -1024,7 +1038,7 @@
       for (let i = 1; i < glassProf.length; i++) glassShape.lineTo(glassProf[i][0], glassProf[i][1]);
       glassShape.lineTo(glassProf[0][0], glassProf[0][1]);
       const glassGeo = new THREE.ExtrudeGeometry(glassShape, {
-        depth: width - 0.55, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, steps: 1
+        depth: width - 0.55, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2, steps: 1
       });
       glassGeo.translate(0, 0, -(width - 0.55) / 2);
       glassGeo.rotateY(-Math.PI / 2);
@@ -1071,12 +1085,14 @@
         tlR = tlL.clone();
         tlR.visible = false;
       } else {
-        tlL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.13, 0.06), tailMat);
-        tlL.position.set(-0.66, 0.74, -2.33);
+        tlL = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.13, 0.06), tailMat);
+        tlL.position.set(-0.58, 0.74, -2.33);
         tlR = tlL.clone();
         tlR.position.x = 0.66;
       }
-      group.add(hlL, hlR, tlL, tlR);
+      const rearStrip = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 0.03), chromeMat);
+      rearStrip.position.set(0, 0.88, -2.345);
+      group.add(hlL, hlR, tlL, tlR, rearStrip);
 
       // Mirrors
       const mirrorGeo = new THREE.BoxGeometry(0.2, 0.11, 0.06);
@@ -1085,6 +1101,13 @@
       const mirR = mirL.clone();
       mirR.position.x = width / 2 + 0.06;
       group.add(mirL, mirR);
+
+      // Lip spoiler on standard cars
+      if (!isExotic && modelId < 1) {
+        const lip = new THREE.Mesh(new THREE.BoxGeometry(width - 0.35, 0.05, 0.3), bodyMat);
+        lip.position.set(0, isExotic ? 0.8 : 0.97, -2.16);
+        group.add(lip);
+      }
 
       // Rear wing with struts (sports/exotic)
       if (isExotic || modelId >= 1) {
