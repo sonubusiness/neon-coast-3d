@@ -432,7 +432,7 @@
     // ==========================================
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x16052e);
-    scene.fog = new THREE.FogExp2(0x16052e, 0.0034);
+    scene.fog = new THREE.FogExp2(0x16052e, 0.0026);
 
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 750);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -472,16 +472,22 @@
     // Procedural Lit Building Window Texture (Zero external asset latency)
     function createWindowTexture(accentHex) {
       const canvas = document.createElement('canvas');
-      canvas.width = 64;
-      canvas.height = 128;
+      canvas.width = 128;
+      canvas.height = 256;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#140c29';
-      ctx.fillRect(0, 0, 64, 128);
-      const colorStr = '#' + accentHex.toString(16).padStart(6, '0');
-      for (let y = 8; y < 120; y += 14) {
-        for (let x = 6; x < 58; x += 14) {
-          ctx.fillStyle = Math.random() > 0.35 ? colorStr : '#241842';
-          ctx.fillRect(x, y, 8, 8);
+      const bases = ['#171a26', '#1d1820', '#151c22', '#1a1a24'];
+      ctx.fillStyle = bases[Math.floor(Math.random() * bases.length)];
+      ctx.fillRect(0, 0, 128, 256);
+      const accent = '#' + accentHex.toString(16).padStart(6, '0');
+      for (let y = 10; y < 244; y += 16) {
+        for (let x = 8; x < 118; x += 15) {
+          const r = Math.random();
+          if (r > 0.62) ctx.fillStyle = Math.random() > 0.5 ? '#ffd9a0' : '#cfe4ff';
+          else if (r > 0.52) ctx.fillStyle = accent;
+          else ctx.fillStyle = '#0d0f16';
+          ctx.fillRect(x, y, 9, 10);
+          ctx.fillStyle = 'rgba(255,255,255,0.13)';
+          ctx.fillRect(x, y, 9, 2);
         }
       }
       const tex = new THREE.CanvasTexture(canvas);
@@ -490,17 +496,92 @@
       return tex;
     }
 
+    // Procedural city ground: painted asphalt roads with markings, sidewalks & crosswalks
+    function createGroundTexture() {
+      const S = 2048;
+      const canvas = document.createElement('canvas');
+      canvas.width = S; canvas.height = S;
+      const ctx = canvas.getContext('2d');
+      // world -> canvas: ground plane is 1000 (x) by 1400 (z), centred at (-25, 0)
+      const sx = S / 1000, sz = S / 1400;
+      const X = (wx) => (wx + 525) * sx;
+      const Z = (wz) => (wz + 700) * sz;
+      let nseed = 987654321;
+      const nrand = () => { nseed = (nseed * 16807) % 2147483647; return (nseed - 1) / 2147483646; };
+
+      // Base pavement (city blocks sit on this)
+      ctx.fillStyle = '#23232e';
+      ctx.fillRect(0, 0, S, S);
+      for (let i = 0; i < 9000; i++) {
+        ctx.fillStyle = nrand() > 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.16)';
+        ctx.fillRect(nrand() * S, nrand() * S, 3, 3);
+      }
+
+      const lines = [];
+      for (let g = -475; g <= 475; g += 50) lines.push(g);
+      const RW = 18; // road width in world units
+
+      // Asphalt strips
+      ctx.fillStyle = '#131318';
+      lines.forEach((g) => {
+        ctx.fillRect(X(g - RW / 2), 0, RW * sx, S);
+        ctx.fillRect(0, Z(g - RW / 2), S, RW * sz);
+      });
+      // Asphalt grain
+      for (let i = 0; i < 7000; i++) {
+        ctx.fillStyle = nrand() > 0.5 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.2)';
+        ctx.fillRect(nrand() * S, nrand() * S, 2, 2);
+      }
+      // Sidewalk kerb lines along both sides of every road
+      ctx.fillStyle = 'rgba(200,200,215,0.5)';
+      lines.forEach((g) => {
+        ctx.fillRect(X(g - RW / 2 - 0.5), 0, 0.5 * sx, S);
+        ctx.fillRect(X(g + RW / 2), 0, 0.5 * sx, S);
+        ctx.fillRect(0, Z(g - RW / 2 - 0.5), S, 0.5 * sz);
+        ctx.fillRect(0, Z(g + RW / 2), S, 0.5 * sz);
+      });
+      // Solid white edge lines
+      ctx.fillStyle = 'rgba(225,228,235,0.75)';
+      lines.forEach((g) => {
+        ctx.fillRect(X(g - 7.6), 0, 0.35 * sx, S);
+        ctx.fillRect(X(g + 7.25), 0, 0.35 * sx, S);
+        ctx.fillRect(0, Z(g - 7.6), S, 0.35 * sz);
+        ctx.fillRect(0, Z(g + 7.25), S, 0.35 * sz);
+      });
+      // Dashed centre lines (worn yellow)
+      ctx.fillStyle = 'rgba(216,185,58,0.9)';
+      lines.forEach((g) => {
+        for (let w = -690; w < 690; w += 9) {
+          if (lines.some((o) => Math.abs(w - o) < 13)) continue;
+          ctx.fillRect(X(g - 0.22), Z(w), 0.44 * sx, 4.5 * sz);
+          ctx.fillRect(X(w), Z(g - 0.22), 4.5 * sx, 0.44 * sz);
+        }
+      });
+      // Crosswalks at every intersection
+      ctx.fillStyle = 'rgba(230,232,238,0.8)';
+      lines.forEach((gx) => {
+        lines.forEach((gz) => {
+          for (let sIdx = -3; sIdx <= 3; sIdx++) {
+            if (sIdx === 0) continue;
+            ctx.fillRect(X(gx + sIdx * 2.4 - 0.8), Z(gz - 11.5), 1.6 * sx, 3.4 * sz);
+            ctx.fillRect(X(gx + sIdx * 2.4 - 0.8), Z(gz + 8.1), 1.6 * sx, 3.4 * sz);
+            ctx.fillRect(X(gx - 11.5), Z(gz + sIdx * 2.4 - 0.8), 3.4 * sx, 1.6 * sz);
+            ctx.fillRect(X(gx + 8.1), Z(gz + sIdx * 2.4 - 0.8), 3.4 * sx, 1.6 * sz);
+          }
+        });
+      });
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      return tex;
+    }
+
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1400),
-      new THREE.MeshStandardMaterial({ color: 0x12121c, roughness: 0.85 })
+      new THREE.MeshStandardMaterial({ map: createGroundTexture(), roughness: 0.94 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.x = -25;
     scene.add(ground);
-
-    const gridHelper = new THREE.GridHelper(1000, 50, 0xff2a85, 0x261447);
-    gridHelper.position.set(-25, 0.05, 0);
-    scene.add(gridHelper);
 
     const beach = new THREE.Mesh(
       new THREE.PlaneGeometry(75, 1400),
@@ -531,6 +612,8 @@
     const neonColors = [0xff2a85, 0x00f0ff, 0xffd700, 0x9d4edd];
     const windowTextures = neonColors.map(c => createWindowTexture(c));
     const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x14141c, roughness: 0.9 });
+    const plinthMat = new THREE.MeshStandardMaterial({ color: 0x2a2a34, roughness: 0.85 });
 
     for (let x = -450; x <= 425; x += 50) {
       for (let z = -450; z <= 450; z += 50) {
@@ -540,21 +623,83 @@
           const d = 18 + seededRandom() * 14;
           const h = 16 + seededRandom() * 68;
           const idx = Math.floor(seededRandom() * neonColors.length);
-          const mesh = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({
-            map: windowTextures[idx],
-            emissive: neonColors[idx],
-            emissiveMap: windowTextures[idx],
-            emissiveIntensity: 0.45,
-            roughness: 0.45
-          }));
+          const tex = windowTextures[idx].clone();
+          tex.needsUpdate = true;
+          tex.repeat.set(Math.max(1, Math.round(w / 11)), Math.max(1, Math.round(h / 11)));
+          const sideMat = new THREE.MeshStandardMaterial({
+            map: tex,
+            emissive: 0xffffff,
+            emissiveMap: tex,
+            emissiveIntensity: 0.5,
+            roughness: 0.6
+          });
+          const mesh = new THREE.Mesh(buildingGeo, [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat]);
           mesh.scale.set(w, h, d);
           mesh.position.set(x, h / 2, z);
           scene.add(mesh);
+          const plinth = new THREE.Mesh(buildingGeo, plinthMat);
+          plinth.scale.set(w + 1.4, 1.1, d + 1.4);
+          plinth.position.set(x, 0.55, z);
+          scene.add(plinth);
+          const cap = new THREE.Mesh(buildingGeo, roofMat);
+          cap.scale.set(w + 0.7, 0.6, d + 0.7);
+          cap.position.set(x, h + 0.3, z);
+          scene.add(cap);
+          if (h > 52) {
+            const tower = new THREE.Mesh(buildingGeo, [sideMat, sideMat, roofMat, roofMat, sideMat, sideMat]);
+            const th = 7 + seededRandom() * 9;
+            tower.scale.set(w * 0.55, th, d * 0.55);
+            tower.position.set(x, h + th / 2, z);
+            scene.add(tower);
+            if (seededRandom() > 0.5) {
+              const antenna = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.12, 0.2, 6, 6), roofMat);
+              antenna.position.set(x, h + th + 3, z);
+              scene.add(antenna);
+            }
+          }
           buildings.push({ x, z, halfW: w / 2 + 1.4, halfD: d / 2 + 1.4 });
         }
       }
     }
 
+    // Streetlights at intersections (emissive lamps, no per-lamp light cost)
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x23232c, metalness: 0.7, roughness: 0.5 });
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xffca7a });
+    const poleGeo = new THREE.CylinderGeometry(0.09, 0.13, 5.4, 6);
+    const armGeo = new THREE.BoxGeometry(0.12, 0.12, 1.9);
+    const lampGeo = new THREE.SphereGeometry(0.17, 8, 8);
+    for (let gx = -450; gx <= 450; gx += 100) {
+      for (let gz = -450; gz <= 450; gz += 100) {
+        const lampGroup = new THREE.Group();
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.y = 2.7;
+        const arm = new THREE.Mesh(armGeo, poleMat);
+        arm.position.set(-0.85, 5.3, 0);
+        arm.rotation.y = Math.PI / 2;
+        const lamp = new THREE.Mesh(lampGeo, lampMat);
+        lamp.position.set(-1.7, 5.22, 0);
+        lampGroup.add(pole, arm, lamp);
+        lampGroup.position.set(gx + 11, 0, gz + 11);
+        lampGroup.rotation.y = ((gx + gz) / 100 % 2 === 0) ? 0 : Math.PI / 2;
+        scene.add(lampGroup);
+      }
+    }
+
+    // Stars
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = [];
+    for (let i = 0; i < 700; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const e = Math.random() * Math.PI * 0.48 + 0.05;
+      const r = 715;
+      starPos.push(Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, Math.sin(a) * Math.cos(e) * r);
+    }
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.85, fog: false
+    }));
+    scene.add(stars);
     // ==========================================
     // 4. NEON STUNT RAMPS + PALMS + ATMs + FUEL
     // ==========================================
@@ -594,10 +739,17 @@
       );
       trunk.position.set(485, 4, z);
       const fronds = new THREE.Mesh(
-        new THREE.ConeGeometry(3.2, 2.2, 6),
-        new THREE.MeshStandardMaterial({ color: 0x00cc66, emissive: 0x004422 })
+        new THREE.ConeGeometry(3.4, 1.6, 7),
+        new THREE.MeshStandardMaterial({ color: 0x0e8a44, roughness: 0.85 })
       );
-      fronds.position.set(485, 8.2, z);
+      fronds.position.set(485, 8.4, z);
+      const fronds2 = new THREE.Mesh(
+        new THREE.ConeGeometry(2.6, 1.3, 7),
+        new THREE.MeshStandardMaterial({ color: 0x0a6e36, roughness: 0.85 })
+      );
+      fronds2.position.set(485, 9.1, z);
+      fronds2.rotation.y = 0.4;
+      scene.add(fronds2);
       scene.add(trunk, fronds);
     }
 
