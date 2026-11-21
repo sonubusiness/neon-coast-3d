@@ -276,6 +276,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
   <script>
     // ==========================================
     // 1. PERSISTENT SAVE DATA & GARAGE CATALOG
@@ -437,7 +438,31 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
     document.body.appendChild(renderer.domElement);
+
+    // CrazyGames SDK (portal ads) - safely no-ops when the game is not running on CrazyGames
+    const CG = {
+      sdk: null,
+      init() {
+        try {
+          if (window.CrazyGames && window.CrazyGames.SDK) {
+            window.CrazyGames.SDK.init()
+              .then(() => { CG.sdk = window.CrazyGames.SDK; try { CG.sdk.game.loadingStop(); } catch (e) {} })
+              .catch(() => {});
+          }
+        } catch (e) {}
+      },
+      gameplayStart() { try { if (CG.sdk) CG.sdk.game.gameplayStart(); } catch (e) {} },
+      adBreak() {
+        try {
+          if (CG.sdk && CG.sdk.ad) CG.sdk.ad.requestAd({ adType: 'midgame' }, { adStarted: () => {}, adFinished: () => {}, adError: () => {} });
+        } catch (e) {}
+      }
+    };
+    CG.init();
 
     scene.add(new THREE.AmbientLight(0xff88bb, 0.9));
     const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.25);
@@ -633,110 +658,134 @@
       const style = OUTFITS[character][outfitIdx % 3];
       const skinColor = character === 'maya' ? 0xd99b78 : 0xe3ac8b;
 
-      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.6 });
-      const topMat = new THREE.MeshStandardMaterial({ color: style.top, roughness: 0.45 });
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.55 });
+      const topMat = new THREE.MeshStandardMaterial({ color: style.top, roughness: 0.5 });
       const pantsMat = new THREE.MeshStandardMaterial({ color: style.pants, roughness: 0.7 });
-      const hairMat = new THREE.MeshStandardMaterial({ color: character === 'maya' ? 0x1c110a : 0x3b281c, roughness: 0.8 });
-      const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: character === 'maya' ? 0x191008 : 0x2e2015, roughness: 0.75 });
+      const shoeMat = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.35 });
+      const goldMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9, roughness: 0.2 });
 
-      const torsoW = character === 'maya' ? 0.56 : 0.68;
-      const torsoH = character === 'maya' ? 0.76 : 0.82;
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoW, torsoH, 0.34), topMat);
-      torso.position.y = 1.22;
-      group.add(torso);
+      const isMaya = character === 'maya';
+      const shoulderR = isMaya ? 0.185 : 0.215;
 
-      const belt = new THREE.Mesh(
-        new THREE.BoxGeometry(torsoW + 0.03, 0.08, 0.36),
-        new THREE.MeshStandardMaterial({ color: style.accent, metalness: 0.8, roughness: 0.2 })
-      );
-      belt.position.y = 0.85;
-      group.add(belt);
+      // Hips + tapered torso (cylinders, not boxes)
+      const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.175, 0.16, 0.24, 14), pantsMat);
+      hips.position.y = 0.94;
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(shoulderR, 0.15, 0.58, 14), topMat);
+      torso.position.y = 1.32;
+      const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.185, 0.185, 0.07, 14),
+        new THREE.MeshStandardMaterial({ color: style.accent, metalness: 0.8, roughness: 0.25 }));
+      belt.position.y = 1.04;
+      group.add(hips, torso, belt);
 
+      // Neck + necklace (Maya)
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.06, 0.12, 10), skinMat);
+      neck.position.y = 1.65;
+      group.add(neck);
+      if (isMaya) {
+        const necklace = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.012, 8, 20), goldMat);
+        necklace.position.y = 1.60;
+        necklace.rotation.x = Math.PI / 2.4;
+        group.add(necklace);
+      }
+
+      // ---- Head: rounded skull + face features ----
       const headGroup = new THREE.Group();
-      headGroup.position.y = 1.82;
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.44, 0.4), skinMat);
+      headGroup.position.y = 1.86;
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.155, 24, 18), skinMat);
+      head.scale.set(0.92, 1.08, 0.98);
       headGroup.add(head);
 
-      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-      const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.04), eyeMat);
-      leftEye.position.set(-0.09, 0.04, 0.2);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x14100c });
+      const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), eyeMat);
+      leftEye.position.set(-0.055, 0.015, 0.142);
       const rightEye = leftEye.clone();
-      rightEye.position.x = 0.09;
-      headGroup.add(leftEye, rightEye);
-
+      rightEye.position.x = 0.055;
+      const browGeo = new THREE.BoxGeometry(0.055, 0.012, 0.012);
       const browMat = new THREE.MeshBasicMaterial({ color: 0x24150e });
-      const leftBrow = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.025, 0.04), browMat);
-      leftBrow.position.set(-0.09, 0.09, 0.205);
+      const leftBrow = new THREE.Mesh(browGeo, browMat);
+      leftBrow.position.set(-0.055, 0.055, 0.145);
       const rightBrow = leftBrow.clone();
-      rightBrow.position.x = 0.09;
-      headGroup.add(leftBrow, rightBrow);
+      rightBrow.position.x = 0.055;
+      const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 8), skinMat);
+      nose.position.set(0, -0.02, 0.152);
+      const lips = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8),
+        new THREE.MeshStandardMaterial({ color: isMaya ? 0xb5445a : 0xb87a6b, roughness: 0.5 }));
+      lips.scale.set(1.25, 0.5, 0.6);
+      lips.position.set(0, -0.082, 0.128);
+      const earGeo = new THREE.SphereGeometry(0.028, 8, 8);
+      const earL = new THREE.Mesh(earGeo, skinMat);
+      earL.position.set(-0.145, 0, 0);
+      const earR = earL.clone();
+      earR.position.x = 0.145;
+      headGroup.add(leftEye, rightEye, leftBrow, rightBrow, nose, lips, earL, earR);
 
-      const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 0.06), skinMat);
-      nose.position.set(0, -0.01, 0.21);
-      const lips = new THREE.Mesh(
-        new THREE.BoxGeometry(0.11, 0.035, 0.03),
-        new THREE.MeshStandardMaterial({ color: character === 'maya' ? 0xb5445a : 0xb87a6b })
-      );
-      lips.position.set(0, -0.1, 0.2);
-      headGroup.add(nose, lips);
-
-      if (character === 'maya') {
-        const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.16, 0.43), hairMat);
-        hairTop.position.y = 0.17;
-        const ponytail = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.48, 0.18), hairMat);
-        ponytail.position.set(0, -0.02, -0.25);
-        ponytail.rotation.x = 0.25;
-
-        const hoopMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 });
-        const hoopL = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 8, 16), hoopMat);
-        hoopL.position.set(-0.21, -0.04, 0);
+      if (isMaya) {
+        // Long hair: cap + back fall + ponytail
+        const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.168, 24, 18), hairMat);
+        hairCap.scale.set(0.95, 1.05, 1.0);
+        hairCap.position.set(0, 0.035, -0.022);
+        const hairBack = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.105, 0.52, 12), hairMat);
+        hairBack.position.set(0, -0.22, -0.085);
+        hairBack.rotation.x = 0.1;
+        const ponytail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.035, 0.34, 8), hairMat);
+        ponytail.position.set(0, -0.08, -0.185);
+        ponytail.rotation.x = 0.45;
+        const hoopGeo = new THREE.TorusGeometry(0.045, 0.009, 8, 16);
+        const hoopL = new THREE.Mesh(hoopGeo, goldMat);
+        hoopL.position.set(-0.15, -0.05, 0);
         hoopL.rotation.y = Math.PI / 2;
         const hoopR = hoopL.clone();
-        hoopR.position.x = 0.21;
-        headGroup.add(hairTop, ponytail, hoopL, hoopR);
+        hoopR.position.x = 0.15;
+        headGroup.add(hairCap, hairBack, ponytail, hoopL, hoopR);
       } else {
-        const cap = new THREE.Mesh(
-          new THREE.BoxGeometry(0.43, 0.15, 0.43),
-          new THREE.MeshStandardMaterial({ color: style.accent })
-        );
-        cap.position.y = 0.17;
-        const visor = new THREE.Mesh(
-          new THREE.BoxGeometry(0.32, 0.04, 0.2),
-          new THREE.MeshStandardMaterial({ color: 0x111111 })
-        );
-        visor.position.set(0, 0.13, -0.26);
-        const stubble = new THREE.Mesh(
-          new THREE.BoxGeometry(0.41, 0.15, 0.41),
-          new THREE.MeshStandardMaterial({ color: 0x5c4638, transparent: true, opacity: 0.45 })
-        );
-        stubble.position.y = -0.14;
-        headGroup.add(cap, visor, stubble);
+        // Short hair + beard + sunglasses
+        const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.163, 24, 18), hairMat);
+        hairCap.scale.set(0.95, 0.82, 0.98);
+        hairCap.position.set(0, 0.055, -0.012);
+        const beard = new THREE.Mesh(new THREE.SphereGeometry(0.148, 20, 14),
+          new THREE.MeshStandardMaterial({ color: 0x4a3524, roughness: 0.9 }));
+        beard.scale.set(0.92, 0.72, 0.92);
+        beard.position.set(0, -0.068, 0.018);
+        const shades = new THREE.Mesh(new THREE.BoxGeometry(0.235, 0.052, 0.025),
+          new THREE.MeshPhysicalMaterial({ color: 0x050508, metalness: 0.4, roughness: 0.05, clearcoat: 1 }));
+        shades.position.set(0, 0.018, 0.148);
+        headGroup.add(hairCap, beard, shades);
       }
       group.add(headGroup);
 
-      const armOffset = torsoW / 2 + 0.11;
+      // ---- Arms: shoulder pivots, upper arm + forearm + hand ----
+      const armX = shoulderR + 0.075;
       function buildArm(side) {
         const pivot = new THREE.Group();
-        pivot.position.set(side * armOffset, 1.54, 0);
-        const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.18), topMat);
-        sleeve.position.y = -0.12;
-        const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.46, 0.15), skinMat);
-        forearm.position.y = -0.44;
-        pivot.add(sleeve, forearm);
+        pivot.position.set(side * armX, 1.52, 0);
+        const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.05, 0.30, 10), topMat);
+        upper.position.y = -0.15;
+        const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.042, 0.28, 10), skinMat);
+        fore.position.y = -0.43;
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.052, 10, 8), skinMat);
+        hand.position.y = -0.60;
+        pivot.add(upper, fore, hand);
         group.add(pivot);
         return pivot;
       }
       const leftArm = buildArm(-1);
       const rightArm = buildArm(1);
 
+      // ---- Legs: hip pivots, thigh + shin + shoe ----
       function buildLeg(side) {
         const pivot = new THREE.Group();
-        pivot.position.set(side * 0.16, 0.82, 0);
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.72, 0.24), pantsMat);
-        leg.position.y = -0.36;
-        const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.12, 0.32), shoeMat);
-        shoe.position.set(0, -0.76, 0.04);
-        pivot.add(leg, shoe);
+        pivot.position.set(side * 0.095, 0.88, 0);
+        const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.062, 0.42, 10), pantsMat);
+        thigh.position.y = -0.21;
+        const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.048, 0.40, 10), pantsMat);
+        shin.position.y = -0.61;
+        const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.115, 0.07, 0.25), shoeMat);
+        shoe.position.set(0, -0.845, 0.035);
+        const toe = new THREE.Mesh(new THREE.SphereGeometry(0.057, 10, 8), shoeMat);
+        toe.scale.set(1.0, 0.6, 1.0);
+        toe.position.set(0, -0.85, 0.15);
+        pivot.add(thigh, shin, shoe, toe);
         group.add(pivot);
         return pivot;
       }
@@ -747,7 +796,6 @@
       scene.add(group);
       return group;
     }
-
     // ==========================================
     // 6. SCULPTED 3D VEHICLES WITH SPINNING WHEELS & HEADLIGHTS
     // ==========================================
@@ -785,67 +833,142 @@
         return group;
       }
 
-      // Main Lower Chassis + Sculpted Hood
-      const bodyMat = new THREE.MeshStandardMaterial({
-        color: isPolice ? 0x111118 : colorHex,
-        metalness: isExotic ? 0.85 : 0.65,
-        roughness: isExotic ? 0.14 : 0.25
+      // ---- V2 SHAPED BODY: real car silhouette extruded from a side profile ----
+      const bodyMat = new THREE.MeshPhysicalMaterial({
+        color: isPolice ? 0xf4f6f8 : colorHex,
+        metalness: 0.75,
+        roughness: isExotic ? 0.16 : 0.3,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08
       });
+      const glassMat = new THREE.MeshPhysicalMaterial({
+        color: 0x0a1626, metalness: 0.9, roughness: 0.05, clearcoat: 1.0
+      });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x0b0b10, metalness: 0.6, roughness: 0.45 });
+      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe8eef4, metalness: 1.0, roughness: 0.15 });
 
-      const chassis = new THREE.Mesh(
-        new THREE.BoxGeometry(isExotic ? 2.38 : 2.22, isExotic ? 0.56 : 0.68, 4.6),
-        bodyMat
-      );
-      chassis.position.y = 0.62;
-      group.add(chassis);
+      const width = isExotic ? 2.34 : 2.16;
+      const prof = isExotic
+        ? [[-2.35, 0.30], [-2.35, 0.72], [-1.95, 0.78], [-1.05, 1.14], [0.15, 1.18], [1.05, 0.82], [2.10, 0.74], [2.35, 0.58], [2.35, 0.30]]
+        : [[-2.30, 0.30], [-2.30, 0.88], [-1.78, 0.94], [-0.98, 1.38], [0.32, 1.42], [1.22, 0.99], [2.05, 0.90], [2.30, 0.74], [2.30, 0.30]];
+      const bodyShape = new THREE.Shape();
+      bodyShape.moveTo(prof[0][0], prof[0][1]);
+      for (let i = 1; i < prof.length; i++) bodyShape.lineTo(prof[i][0], prof[i][1]);
+      bodyShape.lineTo(prof[0][0], prof[0][1]);
+      const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+        depth: width - 0.12, bevelEnabled: true, bevelThickness: 0.06, bevelSize: 0.06, bevelSegments: 2, steps: 1
+      });
+      bodyGeo.translate(0, 0, -(width - 0.12) / 2);
+      bodyGeo.rotateY(-Math.PI / 2);
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      group.add(body);
 
-      // Sloped Cabin Roof
-      const cabin = new THREE.Mesh(
-        new THREE.BoxGeometry(1.78, 0.54, 2.15),
-        new THREE.MeshStandardMaterial({
-          color: isPolice ? 0xffffff : 0x0c0c18,
-          metalness: 0.85,
-          roughness: 0.12
-        })
-      );
-      cabin.position.set(0, 1.16, -0.22);
-      group.add(cabin);
+      // Tinted glasshouse (cabin) — narrower shaped extrusion
+      const glassProf = isExotic
+        ? [[-1.10, 0.80], [-0.98, 1.12], [0.12, 1.16], [0.98, 0.80]]
+        : [[-1.04, 0.96], [-0.90, 1.35], [0.28, 1.39], [1.14, 0.96]];
+      const glassShape = new THREE.Shape();
+      glassShape.moveTo(glassProf[0][0], glassProf[0][1]);
+      for (let i = 1; i < glassProf.length; i++) glassShape.lineTo(glassProf[i][0], glassProf[i][1]);
+      glassShape.lineTo(glassProf[0][0], glassProf[0][1]);
+      const glassGeo = new THREE.ExtrudeGeometry(glassShape, {
+        depth: width - 0.55, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2, steps: 1
+      });
+      glassGeo.translate(0, 0, -(width - 0.55) / 2);
+      glassGeo.rotateY(-Math.PI / 2);
+      const glasshouse = new THREE.Mesh(glassGeo, glassMat);
+      group.add(glasshouse);
 
-      // Front Headlights & Rear Taillights
-      const headMat = new THREE.MeshBasicMaterial({ color: 0xe0ffff });
-      const hlL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.16, 0.1), headMat);
-      hlL.position.set(-0.72, 0.68, 2.31);
-      const hlR = hlL.clone();
-      hlR.position.x = 0.72;
-
-      const tailMat = new THREE.MeshBasicMaterial({ color: 0xff1144 });
-      const tlL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.15, 0.1), tailMat);
-      tlL.position.set(-0.68, 0.7, -2.31);
-      const tlR = tlL.clone();
-      tlR.position.x = 0.68;
-      group.add(hlL, hlR, tlL, tlR);
-
-      // Carbon Rear Wing for Sports/Exotic Models
-      if (isExotic || modelId >= 1) {
-        const wing = new THREE.Mesh(
-          new THREE.BoxGeometry(2.34, 0.09, 0.42),
-          new THREE.MeshStandardMaterial({ color: 0x111111 })
-        );
-        wing.position.set(0, 1.12, -2.1);
-        group.add(wing);
+      // Police livery: black hood + trunk overlays
+      if (isPolice) {
+        const hood = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 1.15), trimMat);
+        hood.position.set(0, 0.93, 1.62);
+        hood.rotation.x = 0.06;
+        const trunk = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.06, 0.8), trimMat);
+        trunk.position.set(0, 0.94, -1.95);
+        group.add(hood, trunk);
       }
 
-      // Twin Nitro Exhaust Flame Cones
+      // Bumpers, side skirts, grille
+      const bumperF = new THREE.Mesh(new THREE.BoxGeometry(width - 0.06, 0.26, 0.22), trimMat);
+      bumperF.position.set(0, 0.38, 2.30);
+      const bumperR = bumperF.clone();
+      bumperR.position.z = -2.30;
+      const skirtL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 2.6), trimMat);
+      skirtL.position.set(-(width / 2 - 0.02), 0.32, 0);
+      const skirtR = skirtL.clone();
+      skirtR.position.x = width / 2 - 0.02;
+      const grille = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.2, 0.06), trimMat);
+      grille.position.set(0, 0.56, 2.345);
+      const grilleBar = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.045, 0.02), chromeMat);
+      grilleBar.position.set(0, 0.56, 2.38);
+      group.add(bumperF, bumperR, skirtL, skirtR, grille, grilleBar);
+
+      // Headlights (emissive) & taillights
+      const headMat = new THREE.MeshStandardMaterial({ color: 0x223344, emissive: 0xcfefff, emissiveIntensity: 1.4 });
+      const hlL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.13, 0.07), headMat);
+      hlL.position.set(-0.68, 0.74, 2.33);
+      hlL.rotation.x = -0.1;
+      const hlR = hlL.clone();
+      hlR.position.x = 0.68;
+      const tailMat = new THREE.MeshStandardMaterial({ color: 0x33000d, emissive: 0xff1144, emissiveIntensity: 1.3 });
+      let tlL, tlR;
+      if (isExotic) {
+        tlL = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.1, 0.06), tailMat);
+        tlL.position.set(0, 0.72, -2.36);
+        tlR = tlL.clone();
+        tlR.visible = false;
+      } else {
+        tlL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.13, 0.06), tailMat);
+        tlL.position.set(-0.66, 0.74, -2.33);
+        tlR = tlL.clone();
+        tlR.position.x = 0.66;
+      }
+      group.add(hlL, hlR, tlL, tlR);
+
+      // Mirrors
+      const mirrorGeo = new THREE.BoxGeometry(0.2, 0.11, 0.06);
+      const mirL = new THREE.Mesh(mirrorGeo, bodyMat);
+      mirL.position.set(-(width / 2 + 0.06), 1.08, 0.95);
+      const mirR = mirL.clone();
+      mirR.position.x = width / 2 + 0.06;
+      group.add(mirL, mirR);
+
+      // Rear wing with struts (sports/exotic)
+      if (isExotic || modelId >= 1) {
+        const wingMat = new THREE.MeshStandardMaterial({ color: 0x0d0d12, metalness: 0.7, roughness: 0.3 });
+        const wing = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.07, 0.4), wingMat);
+        wing.position.set(0, 1.16, -2.05);
+        const strutGeo = new THREE.BoxGeometry(0.07, 0.3, 0.07);
+        const strutL = new THREE.Mesh(strutGeo, wingMat);
+        strutL.position.set(-0.7, 0.98, -2.05);
+        const strutR = strutL.clone();
+        strutR.position.x = 0.7;
+        group.add(wing, strutL, strutR);
+      }
+
+      // Chrome exhausts + nitro flames + plate
+      const exhaustGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.22, 10).rotateX(Math.PI / 2);
+      const exL = new THREE.Mesh(exhaustGeo, chromeMat);
+      exL.position.set(-0.55, 0.34, -2.38);
+      const exR = exL.clone();
+      exR.position.x = 0.55;
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.15, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.5 }));
+      plate.position.set(0, 0.6, -2.37);
+      group.add(exL, exR, plate);
+
       const flameMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-      const flameL = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 8), flameMat);
+      const flameL = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.9, 8), flameMat);
       flameL.rotation.x = -Math.PI / 2;
-      flameL.position.set(-0.55, 0.45, -2.7);
+      flameL.position.set(-0.55, 0.34, -2.75);
       flameL.visible = false;
       const flameR = flameL.clone();
       flameR.position.x = 0.55;
       group.add(flameL, flameR);
 
-      // 4 Spinning Wheels with Alloy Rims
+      // V2 wheels: tire + deep rim + 5 spokes (spin is now visible)
+      const spokeMat = new THREE.MeshStandardMaterial({ color: 0xb8c4d0, metalness: 0.95, roughness: 0.25 });
       const wheels = [];
       const wheelOffsets = [
         [-1.12, 0.42, 1.45],
@@ -856,18 +979,25 @@
       wheelOffsets.forEach(([wx, wy, wz]) => {
         const wGroup = new THREE.Group();
         const tire = new THREE.Mesh(wheelGeo, tireMat);
-        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 8).rotateZ(Math.PI / 2), rimMat);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.34, 12).rotateZ(Math.PI / 2), rimMat);
         wGroup.add(tire, rim);
+        for (let s = 0; s < 5; s++) {
+          const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.46, 0.09), spokeMat);
+          spoke.rotation.x = (s / 5) * Math.PI * 2;
+          wGroup.add(spoke);
+        }
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.37, 10).rotateZ(Math.PI / 2), spokeMat);
+        wGroup.add(hub);
         wGroup.position.set(wx, wy, wz);
         group.add(wGroup);
         wheels.push(wGroup);
       });
 
       if (isPolice) {
-        const redBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.3), new THREE.MeshBasicMaterial({ color: 0xff0033 }));
-        redBar.position.set(-0.4, 1.54, -0.2);
-        const blueBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.3), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
-        blueBar.position.set(0.4, 1.54, -0.2);
+        const redBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.3), new THREE.MeshBasicMaterial({ color: 0xff0033 }));
+        redBar.position.set(-0.4, 1.52, -0.15);
+        const blueBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.3), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
+        blueBar.position.set(0.4, 1.52, -0.15);
         group.add(redBar, blueBar);
         group.userData = { wheels, flameL, flameR, redBar, blueBar };
       } else {
@@ -880,7 +1010,6 @@
       scene.add(group);
       return group;
     }
-
     // ==========================================
     // 7. WORLD VEHICLES, DRIFT SKIDS & PLAYER STATE
     // ==========================================
@@ -1011,6 +1140,7 @@
 
     function enterGame() {
       AudioEngine.init();
+      CG.gameplayStart();
       gameStarted = true;
       titleScreen.classList.add('hidden');
       garageScreen.classList.add('hidden');
@@ -1209,6 +1339,7 @@
     ];
 
     function startLevel(lvlNum) {
+      if (lvlNum > 1) CG.adBreak();
       campaign.level = lvlNum;
       if (lvlNum > LEVELS.length) {
         missionTitleEl.textContent = 'CAMPAIGN COMPLETE — FREE ROAM';
