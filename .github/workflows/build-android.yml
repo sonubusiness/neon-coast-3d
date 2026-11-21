@@ -1,0 +1,43 @@
+name: Build Android AAB in Cloud
+
+on:
+  workflow_dispatch: # Click "Run workflow" button in GitHub anytime
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout game files
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Prepare web folder
+        run: |
+          mkdir -p www
+          cp index.html www/index.html
+
+      - name: Initialize Capacitor & Build Android Bundle
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Neon Coast 3D" "in.kaurex.neoncoast3d" --web-dir www
+          npx cap add android
+          npx cap sync android
+          cd android
+          ./gradlew bundleRelease
+
+      - name: Upload Unsigned AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: neon-coast-3d-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
