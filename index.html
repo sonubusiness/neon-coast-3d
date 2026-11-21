@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Neon Coast 3D — Duo Heist & Open World Multiplayer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body { overflow: hidden; background: #090118; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
+
+    /* ==========================================
+       3D TITLE SCREEN & GARAGE OVERLAYS
+       ========================================== */
+    .overlay {
+      position: fixed; inset: 0; z-index: 40;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, rgba(13, 2, 33, 0.45) 0%, rgba(9, 1, 24, 0.88) 100%);
+      backdrop-filter: blur(4px); padding: 20px; text-align: center;
+    }
+    .hidden { display: none !important; }
+
+    .logo-tag {
+      font-size: 11px; letter-spacing: 4px; color: #00f0ff; font-weight: 800;
+      text-transform: uppercase; margin-bottom: 6px;
+    }
+    .game-title {
+      font-size: clamp(32px, 6vw, 58px); font-weight: 900; letter-spacing: 3px;
+      text-transform: uppercase; line-height: 1.05;
+      background: linear-gradient(90deg, #ff2a85, #ffd700, #00f0ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 18px rgba(255, 42, 133, 0.5));
+    }
+    .subtitle {
+      font-size: 13px; color: #d8c8ff; margin-top: 8px; max-width: 480px;
+    }
+
+    .menu-card {
+      margin-top: 22px; background: rgba(13, 2, 33, 0.9);
+      border: 1px solid #ff2a85; border-radius: 14px; padding: 18px 22px;
+      box-shadow: 0 0 30px rgba(255, 42, 133, 0.35); width: 100%; max-width: 440px;
+    }
+    .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .btn-hero {
+      grid-column: span 2; padding: 13px 18px; font-size: 15px; letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #ff2a85, #ff5e00); border: none; border-radius: 8px;
+      color: #fff; font-weight: 900; cursor: pointer; text-transform: uppercase;
+      box-shadow: 0 0 20px rgba(255, 42, 133, 0.55);
+    }
+    .btn-menu {
+      padding: 10px 12px; font-size: 12px; font-weight: 800; border-radius: 8px;
+      border: 1px solid #00f0ff; background: rgba(0, 240, 255, 0.14); color: #00f0ff;
+      cursor: pointer; text-transform: uppercase;
+    }
+    .btn-menu.gold { border-color: #ffd700; background: rgba(255, 215, 0, 0.16); color: #ffd700; }
+    .btn-hero:active, .btn-menu:active { transform: scale(0.97); }
+
+    /* Garage Modal */
+    .garage-card {
+      background: rgba(13, 2, 33, 0.95); border: 1px solid #00f0ff;
+      border-radius: 14px; padding: 18px; width: 100%; max-width: 560px;
+      max-height: 88vh; overflow-y: auto; text-align: left;
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.35);
+    }
+    .garage-header {
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15); padding-bottom: 10px; margin-bottom: 12px;
+    }
+    .car-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .shop-item {
+      background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 42, 133, 0.45);
+      border-radius: 8px; padding: 10px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .shop-item.active { border-color: #00ff88; background: rgba(0, 255, 136, 0.1); }
+    .shop-item h3 { font-size: 12px; color: #fff; }
+    .shop-item span { font-size: 10px; color: #00f0ff; margin: 3px 0 8px; display: block; }
+    .swatch-row { display: flex; gap: 8px; margin: 8px 0 14px; flex-wrap: wrap; }
+    .swatch {
+      width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; cursor: pointer;
+    }
+
+    /* ==========================================
+       IN-GAME HUD
+       ========================================== */
+    #hud {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 8px; pointer-events: none; z-index: 10; flex-wrap: wrap;
+    }
+    .panel {
+      background: rgba(13, 2, 33, 0.86); border: 1px solid #ff2a85;
+      padding: 8px 12px; border-radius: 8px; backdrop-filter: blur(6px);
+      box-shadow: 0 0 15px rgba(255, 42, 133, 0.35); pointer-events: auto;
+    }
+    h1 { font-size: 12px; letter-spacing: 1.5px; color: #ff2a85; text-transform: uppercase; }
+    p { font-size: 10px; color: #00f0ff; margin-top: 2px; }
+
+    #mission-box {
+      margin-top: 6px; padding: 6px 9px; border-radius: 6px;
+      background: rgba(0, 240, 255, 0.1); border-left: 3px solid #ffd700;
+    }
+    #mission-title { font-size: 11px; font-weight: 800; color: #ffd700; text-transform: uppercase; }
+    #mission-desc { font-size: 10px; color: #ffffff; margin-top: 2px; }
+
+    .right-cluster { display: flex; gap: 8px; align-items: flex-start; pointer-events: none; }
+    #radar-wrap {
+      width: 102px; height: 102px; border-radius: 50%; overflow: hidden;
+      border: 2px solid #00f0ff; background: rgba(10, 4, 28, 0.92);
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.4); position: relative;
+    }
+    #radar { width: 100%; height: 100%; display: block; }
+
+    #bank { font-size: 14px; font-weight: 800; color: #00f0ff; text-align: right; }
+    #cash { font-size: 12px; font-weight: 700; color: #00ff88; text-align: right; }
+    #wanted { font-size: 12px; letter-spacing: 2px; color: #ffd700; text-align: right; margin-top: 2px; }
+    .bar-row { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 3px; font-size: 9px; font-weight: bold; }
+    .mini-bar { width: 64px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; overflow: hidden; }
+    #nitro-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #00f0ff, #ff2a85); }
+    #fuel-fill { width: 100%; height: 100%; background: #ff9e00; }
+    #speedometer { font-size: 11px; font-weight: 700; color: #fff; text-align: right; margin-top: 3px; }
+    #player-count { font-size: 10px; color: #ff77aa; text-align: right; }
+
+    .mp-row { display: flex; gap: 5px; margin-top: 6px; align-items: center; flex-wrap: wrap; }
+    input {
+      background: rgba(255, 255, 255, 0.1); border: 1px solid #00f0ff;
+      color: #fff; padding: 4px 6px; border-radius: 4px; font-size: 10px; width: 76px;
+      text-transform: uppercase;
+    }
+    button.hud-btn {
+      background: #ff2a85; border: none; color: #fff; padding: 5px 8px;
+      border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer;
+      text-transform: uppercase;
+    }
+    button.hud-btn.secondary { background: #00f0ff; color: #0d0221; }
+    button.hud-btn.gold { background: #ffd700; color: #0d0221; }
+    button.hud-btn.green { background: #00ff88; color: #0d0221; }
+    #net-status { font-size: 10px; color: #a8ff78; margin-top: 4px; }
+
+    #toast {
+      position: fixed; top: 162px; left: 50%; transform: translateX(-50%);
+      background: rgba(13, 2, 33, 0.94); border: 1px solid #00ff88;
+      color: #00ff88; padding: 7px 18px; border-radius: 20px;
+      font-size: 11px; font-weight: bold; letter-spacing: 1px;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 25;
+      text-align: center; white-space: nowrap;
+    }
+
+    /* Mobile & Action Controls */
+    #mobile-controls {
+      position: fixed; bottom: 16px; left: 14px; right: 14px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+      z-index: 20; pointer-events: none;
+    }
+    .control-group { display: flex; gap: 8px; pointer-events: auto; align-items: center; flex-wrap: wrap; }
+    .btn {
+      width: 54px; height: 54px; border-radius: 50%;
+      background: rgba(255, 42, 133, 0.28); border: 2px solid #ff2a85;
+      color: #fff; font-size: 16px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: manipulation;
+    }
+    .btn.action { width: 48px; height: 48px; font-size: 9px; background: rgba(0, 240, 255, 0.25); border-color: #00f0ff; }
+    .btn.fire { width: 50px; height: 50px; font-size: 9px; background: rgba(255, 0, 68, 0.42); border-color: #ff0044; }
+    .btn.nitro { width: 50px; height: 50px; font-size: 9px; background: rgba(255, 215, 0, 0.3); border-color: #ffd700; }
+    .btn.shotgun { width: 46px; height: 46px; font-size: 9px; background: rgba(0, 255, 136, 0.25); border-color: #00ff88; }
+    .btn:active { background: rgba(0, 240, 255, 0.6); border-color: #00f0ff; }
+    @media (min-width: 900px) and (pointer: fine) {
+      #mobile-controls { opacity: 0.55; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================
+       3D TITLE SCREEN OVERLAY
+       ========================================== -->
+  <div id="title-screen" class="overlay">
+    <div class="logo-tag">Suncrest Bay Open-World WebGL</div>
+    <div class="game-title">NEON COAST 3D</div>
+    <div class="subtitle">Duo Heist • Stunt Ramps • Speedboats • Real-Time Laptop & Phone Multiplayer</div>
+
+    <div class="menu-card">
+      <div style="font-size:12px; color:#00ff88; font-weight:bold;" id="title-bank">BANK BALANCE: $1,000</div>
+      <div class="menu-grid">
+        <button id="btn-play" class="btn-hero">▶ PLAY SUNCREST CAMPAIGN</button>
+        <button id="btn-open-garage" class="btn-menu gold">🏎 GARAGE & SHOP</button>
+        <button id="btn-title-char" class="btn-menu">CHAR: MAYA</button>
+        <button id="btn-title-radio" class="btn-menu">SUNCREST FM: ON</button>
+        <button id="btn-title-invite" class="btn-menu">📋 COPY CO-OP LINK</button>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:6px; justify-content:center;">
+        <input id="title-room-input" placeholder="ROOM CODE" maxlength="10" style="width:120px; padding:7px; font-size:12px;" />
+        <button id="btn-title-join" class="hud-btn">JOIN FRIEND</button>
+      </div>
+      <div id="title-net" style="font-size:11px; color:#a8ff78; margin-top:8px;">Initializing P2P Room...</div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       GARAGE & UPGRADE SHOP MODAL
+       ========================================== -->
+  <div id="garage-screen" class="overlay hidden">
+    <div class="garage-card">
+      <div class="garage-header">
+        <div>
+          <h2 style="font-size:16px; color:#ffd700; text-transform:uppercase;">Suncrest Customs Garage</h2>
+          <div id="garage-bank" style="font-size:12px; color:#00ff88; font-weight:bold;">BANK: $1,000</div>
+        </div>
+        <button id="btn-close-garage" class="hud-btn">BACK TO GAME</button>
+      </div>
+
+      <div style="font-size:11px; color:#00f0ff; font-weight:bold; margin-bottom:6px;">SELECT OR UNLOCK VEHICLE</div>
+      <div class="car-list" id="garage-car-list"></div>
+
+      <div style="font-size:11px; color:#00f0ff; font-weight:bold; margin-bottom:6px;">PERFORMANCE TUNING</div>
+      <div class="car-list" id="garage-upgrade-list"></div>
+
+      <div style="font-size:11px; color:#00f0ff; font-weight:bold;">CUSTOM PAINT & NEON UNDERGLOW</div>
+      <div class="swatch-row" id="garage-swatches"></div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       IN-GAME HUD
+       ========================================== -->
+  <div id="hud" class="hidden">
+    <div class="panel" style="max-width: 440px;">
+      <h1>Neon Coast 3D — Duo Heist</h1>
+      <p>WASD: Drive • Space: Drift • Shift: Nitro • F: Exit • E: Fire • B: Garage</p>
+      <div id="mission-box">
+        <div id="mission-title">LEVEL 1: FIRST DROP</div>
+        <div id="mission-desc">Collect green beacons & deposit $1,500 at a cyan ATM.</div>
+      </div>
+      <div class="mp-row">
+        <button id="btn-hud-garage" class="hud-btn gold">Garage</button>
+        <button id="btn-char" class="hud-btn gold">Maya</button>
+        <button id="btn-outfit" class="hud-btn secondary">Outfit</button>
+        <button id="btn-radio" class="hud-btn green">Radio: ON</button>
+        <button id="btn-next-lvl" class="hud-btn gold">Next Lvl</button>
+        <button id="btn-copy-link" class="hud-btn secondary">Invite</button>
+        <input id="room-input" placeholder="CODE" maxlength="10" />
+        <button id="btn-join" class="hud-btn">Join</button>
+      </div>
+      <div id="net-status">Initializing P2P network...</div>
+    </div>
+
+    <div class="right-cluster">
+      <div id="radar-wrap"><canvas id="radar" width="102" height="102"></canvas></div>
+      <div class="panel">
+        <div id="bank">BANK: $1,000</div>
+        <div id="cash">CASH: $250</div>
+        <div id="wanted">☆ ☆ ☆ ☆ ☆</div>
+        <div class="bar-row"><span style="color:#00f0ff;">NITRO</span><div class="mini-bar"><div id="nitro-fill"></div></div></div>
+        <div class="bar-row"><span style="color:#ff9e00;">FUEL</span><div class="mini-bar"><div id="fuel-fill"></div></div></div>
+        <div id="speedometer">0 KM/H</div>
+        <div id="player-count">ONLINE: 1</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast">WELCOME TO SUNCREST BAY!</div>
+
+  <div id="mobile-controls" class="hidden">
+    <div class="control-group">
+      <div class="btn" id="btn-left">◀</div>
+      <div class="btn" id="btn-right">▶</div>
+      <div class="btn shotgun" id="btn-shotgun">CO-OP</div>
+    </div>
+    <div class="control-group">
+      <div class="btn nitro" id="btn-nitro">NITRO</div>
+      <div class="btn fire" id="btn-fire">FIRE</div>
+      <div class="btn action" id="btn-action">EXIT</div>
+      <div class="btn" id="btn-brake">▼</div>
+      <div class="btn" id="btn-gas">▲</div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+  <script>
+    // ==========================================
+    // 1. PERSISTENT SAVE DATA & GARAGE CATALOG
+    // ==========================================
+    const CAR_MODELS = [
+      { id: 0, name: 'Suncrest Coupe', price: 0, speedMult: 1.0, handling: 1.0, desc: 'Balanced street tuner' },
+      { id: 1, name: 'Viper GT Turbo', price: 1500, speedMult: 1.15, handling: 1.1, desc: 'Twin-turbo drift coupe' },
+      { id: 2, name: 'Apex Hyperion', price: 3000, speedMult: 1.28, handling: 1.18, desc: 'Mid-engine carbon exotic' },
+      { id: 3, name: 'Phantom Interceptor', price: 4500, speedMult: 1.38, handling: 1.25, desc: 'Armored pursuit prototype' }
+    ];
+
+    const PAINT_SWATCHES = [
+      { name: 'Neon Magenta', hex: 0xff2a85, css: '#ff2a85' },
+      { name: 'Cyber Cyan', hex: 0x00f0ff, css: '#00f0ff' },
+      { name: 'Solar Gold', hex: 0xffd700, css: '#ffd700' },
+      { name: 'Emerald Surge', hex: 0x00ff88, css: '#00ff88' },
+      { name: 'Ultraviolet', hex: 0x9d4edd, css: '#9d4edd' },
+      { name: 'Stealth Carbon', hex: 0x22222e, css: '#22222e' }
+    ];
+
+    const defaultSave = {
+      bank: 1000,
+      ownedCars: [0],
+      selectedCar: 0,
+      paintHex: 0xff2a85,
+      engineLvl: 1,
+      nitroLvl: 1,
+      armorLvl: 1
+    };
+
+    let saveData = { ...defaultSave };
+    try {
+      const raw = localStorage.getItem('neonCoastSave_v1');
+      if (raw) saveData = { ...defaultSave, ...JSON.parse(raw) };
+    } catch {}
+
+    function persistSave() {
+      saveData.bank = player.bank;
+      try { localStorage.setItem('neonCoastSave_v1', JSON.stringify(saveData)); } catch {}
+    }
+
+    // ==========================================
+    // 2. WEB AUDIO API SYNTHWAVE RADIO & SFX
+    // ==========================================
+    const AudioEngine = {
+      ctx: null,
+      radioOn: true,
+      step: 0,
+      engineOsc: null,
+      engineGain: null,
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          this.engineOsc = this.ctx.createOscillator();
+          this.engineGain = this.ctx.createGain();
+          this.engineOsc.type = 'sawtooth';
+          this.engineOsc.frequency.value = 45;
+          this.engineGain.gain.value = 0.0;
+          this.engineOsc.connect(this.engineGain);
+          this.engineGain.connect(this.ctx.destination);
+          this.engineOsc.start();
+        }
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+
+      toggleRadio() {
+        this.init();
+        this.radioOn = !this.radioOn;
+        return this.radioOn;
+      },
+
+      playSynthStep() {
+        if (!this.radioOn || !this.ctx || this.ctx.state !== 'running') return;
+        const notes = [146.83, 146.83, 174.61, 220.00, 261.63, 220.00, 174.61, 130.81];
+        const freq = notes[this.step % notes.length];
+        this.step++;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(0.055, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.17);
+      },
+
+      playLaser() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(680, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.13);
+      },
+
+      playLevelUp() {
+        this.init();
+        [261.63, 329.63, 392.00, 523.25].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(f, this.ctx.currentTime + idx * 0.09);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime + idx * 0.09);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.09 + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + idx * 0.09);
+          osc.stop(this.ctx.currentTime + idx * 0.09 + 0.26);
+        });
+      },
+
+      playExplosion() {
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.14, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.36);
+      },
+
+      updateEngine(speedRatio, active, nitroActive = false) {
+        if (!this.ctx || !this.engineGain) return;
+        if (!active || !gameStarted) {
+          this.engineGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.08);
+          return;
+        }
+        const pitch = 42 + speedRatio * 95 + (nitroActive ? 35 : 0);
+        this.engineOsc.frequency.setTargetAtTime(pitch, this.ctx.currentTime, 0.05);
+        this.engineGain.gain.setTargetAtTime(0.025 + speedRatio * 0.025, this.ctx.currentTime, 0.05);
+      }
+    };
+
+    setInterval(() => AudioEngine.playSynthStep(), 180);
+
+    // ==========================================
+    // 3. SCENE, PROCEDURAL TEXTURES & ENVIRONMENT
+    // ==========================================
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x16052e);
+    scene.fog = new THREE.FogExp2(0x16052e, 0.0034);
+
+    const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 750);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xff88bb, 0.9));
+    const dirLight = new THREE.DirectionalLight(0x00f0ff, 1.25);
+    dirLight.position.set(60, 140, 40);
+    scene.add(dirLight);
+
+    // Procedural Lit Building Window Texture (Zero external asset latency)
+    function createWindowTexture(accentHex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 64;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#140c29';
+      ctx.fillRect(0, 0, 64, 128);
+      const colorStr = '#' + accentHex.toString(16).padStart(6, '0');
+      for (let y = 8; y < 120; y += 14) {
+        for (let x = 6; x < 58; x += 14) {
+          ctx.fillStyle = Math.random() > 0.35 ? colorStr : '#241842';
+          ctx.fillRect(x, y, 8, 8);
+        }
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(1000, 1400),
+      new THREE.MeshStandardMaterial({ color: 0x12121c, roughness: 0.85 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.x = -25;
+    scene.add(ground);
+
+    const gridHelper = new THREE.GridHelper(1000, 50, 0xff2a85, 0x261447);
+    gridHelper.position.set(-25, 0.05, 0);
+    scene.add(gridHelper);
+
+    const beach = new THREE.Mesh(
+      new THREE.PlaneGeometry(75, 1400),
+      new THREE.MeshStandardMaterial({ color: 0xe6c280, roughness: 0.9 })
+    );
+    beach.rotation.x = -Math.PI / 2;
+    beach.position.set(510, 0.04, 0);
+    scene.add(beach);
+
+    const ocean = new THREE.Mesh(
+      new THREE.PlaneGeometry(800, 1400, 20, 20),
+      new THREE.MeshStandardMaterial({ color: 0x0077b6, emissive: 0x003554, roughness: 0.25, metalness: 0.6 })
+    );
+    ocean.rotation.x = -Math.PI / 2;
+    ocean.position.set(945, -0.1, 0);
+    scene.add(ocean);
+
+    const WATER_LINE_X = 545;
+
+    // Seeded City Skyscrapers with Lit Windows
+    let seed = 42069;
+    function seededRandom() {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    }
+
+    const buildings = [];
+    const neonColors = [0xff2a85, 0x00f0ff, 0xffd700, 0x9d4edd];
+    const windowTextures = neonColors.map(c => createWindowTexture(c));
+    const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    for (let x = -450; x <= 425; x += 50) {
+      for (let z = -450; z <= 450; z += 50) {
+        if (Math.abs(x) < 45 && Math.abs(z) < 45) continue;
+        if (seededRandom() > 0.35) {
+          const w = 18 + seededRandom() * 14;
+          const d = 18 + seededRandom() * 14;
+          const h = 16 + seededRandom() * 68;
+          const idx = Math.floor(seededRandom() * neonColors.length);
+          const mesh = new THREE.Mesh(buildingGeo, new THREE.MeshStandardMaterial({
+            map: windowTextures[idx],
+            emissive: neonColors[idx],
+            emissiveMap: windowTextures[idx],
+            emissiveIntensity: 0.45,
+            roughness: 0.45
+          }));
+          mesh.scale.set(w, h, d);
+          mesh.position.set(x, h / 2, z);
+          scene.add(mesh);
+          buildings.push({ x, z, halfW: w / 2 + 1.4, halfD: d / 2 + 1.4 });
+        }
+      }
+    }
+
+    // ==========================================
+    // 4. NEON STUNT RAMPS + PALMS + ATMs + FUEL
+    // ==========================================
+    const stuntRamps = [
+      { x: 0, z: 75, rot: 0 },
+      { x: 150, z: -50, rot: Math.PI / 2 },
+      { x: -150, z: 100, rot: -Math.PI / 2 },
+      { x: 300, z: 150, rot: 0 }
+    ];
+
+    stuntRamps.forEach((r) => {
+      const rampGroup = new THREE.Group();
+      const deck = new THREE.Mesh(
+        new THREE.BoxGeometry(8, 0.4, 14),
+        new THREE.MeshStandardMaterial({ color: 0x1b1035, emissive: 0xff2a85, emissiveIntensity: 0.4 })
+      );
+      deck.position.set(0, 1.5, 0);
+      deck.rotation.x = -0.24;
+      const edgeL = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.6, 14),
+        new THREE.MeshBasicMaterial({ color: 0x00f0ff })
+      );
+      edgeL.position.set(-3.9, 1.7, 0);
+      edgeL.rotation.x = -0.24;
+      const edgeR = edgeL.clone();
+      edgeR.position.x = 3.9;
+      rampGroup.add(deck, edgeL, edgeR);
+      rampGroup.position.set(r.x, 0, r.z);
+      rampGroup.rotation.y = r.rot;
+      scene.add(rampGroup);
+    });
+
+    for (let z = -450; z <= 450; z += 45) {
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.4, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0x6b4423 })
+      );
+      trunk.position.set(485, 4, z);
+      const fronds = new THREE.Mesh(
+        new THREE.ConeGeometry(3.2, 2.2, 6),
+        new THREE.MeshStandardMaterial({ color: 0x00cc66, emissive: 0x004422 })
+      );
+      fronds.position.set(485, 8.2, z);
+      scene.add(trunk, fronds);
+    }
+
+    const atmZones = [
+      { x: 25, z: 25 }, { x: -125, z: 75 }, { x: 175, z: -125 }, { x: 465, z: 50 }
+    ];
+    atmZones.forEach((atm) => {
+      const kiosk = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 3.2, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0x00f0ff, emissive: 0x00f0ff, emissiveIntensity: 0.5 })
+      );
+      kiosk.position.set(atm.x, 1.6, atm.z);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(3.2, 3.8, 24),
+        new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(atm.x, 0.1, atm.z);
+      scene.add(kiosk, ring);
+    });
+
+    const fuelZones = [
+      { x: -25, z: -25 }, { x: 125, z: 125 }, { x: 465, z: -100 }
+    ];
+    fuelZones.forEach((fz) => {
+      const pump = new THREE.Mesh(
+        new THREE.BoxGeometry(2.8, 3.5, 2.8),
+        new THREE.MeshStandardMaterial({ color: 0xff9e00, emissive: 0xff5e00, emissiveIntensity: 0.55 })
+      );
+      pump.position.set(fz.x, 1.75, fz.z);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(4.0, 4.7, 24),
+        new THREE.MeshBasicMaterial({ color: 0xff9e00, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(fz.x, 0.1, fz.z);
+      scene.add(pump, ring);
+    });
+
+    // ==========================================
+    // 5. MAYA & JAX 3D CHARACTER BUILDER
+    // ==========================================
+    const OUTFITS = {
+      maya: [
+        { name: 'Neon Club & Denim', top: 0xff1e56, pants: 0x264653, accent: 0xffd700 },
+        { name: 'Stealth Ops Black', top: 0x16161d, pants: 0x22222b, accent: 0x00f0ff },
+        { name: 'Suncrest Pearl White', top: 0xf8f9fa, pants: 0x3a86ff, accent: 0xff2a85 }
+      ],
+      jax: [
+        { name: 'Coastal Tank & Cargo', top: 0xf1faee, pants: 0x4a5759, accent: 0xd62828 },
+        { name: 'Midnight Moto Jacket', top: 0x1b1b22, pants: 0x1d3557, accent: 0xff9e00 },
+        { name: 'Bayfront Aqua Shirt', top: 0x00bbf9, pants: 0xe9c46a, accent: 0xff006e }
+      ]
+    };
+
+    function createProtagonistMesh(character = 'maya', outfitIdx = 0) {
+      const group = new THREE.Group();
+      const style = OUTFITS[character][outfitIdx % 3];
+      const skinColor = character === 'maya' ? 0xd99b78 : 0xe3ac8b;
+
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.6 });
+      const topMat = new THREE.MeshStandardMaterial({ color: style.top, roughness: 0.45 });
+      const pantsMat = new THREE.MeshStandardMaterial({ color: style.pants, roughness: 0.7 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: character === 'maya' ? 0x1c110a : 0x3b281c, roughness: 0.8 });
+      const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+
+      const torsoW = character === 'maya' ? 0.56 : 0.68;
+      const torsoH = character === 'maya' ? 0.76 : 0.82;
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(torsoW, torsoH, 0.34), topMat);
+      torso.position.y = 1.22;
+      group.add(torso);
+
+      const belt = new THREE.Mesh(
+        new THREE.BoxGeometry(torsoW + 0.03, 0.08, 0.36),
+        new THREE.MeshStandardMaterial({ color: style.accent, metalness: 0.8, roughness: 0.2 })
+      );
+      belt.position.y = 0.85;
+      group.add(belt);
+
+      const headGroup = new THREE.Group();
+      headGroup.position.y = 1.82;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.44, 0.4), skinMat);
+      headGroup.add(head);
+
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+      const leftEye = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.04), eyeMat);
+      leftEye.position.set(-0.09, 0.04, 0.2);
+      const rightEye = leftEye.clone();
+      rightEye.position.x = 0.09;
+      headGroup.add(leftEye, rightEye);
+
+      const browMat = new THREE.MeshBasicMaterial({ color: 0x24150e });
+      const leftBrow = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.025, 0.04), browMat);
+      leftBrow.position.set(-0.09, 0.09, 0.205);
+      const rightBrow = leftBrow.clone();
+      rightBrow.position.x = 0.09;
+      headGroup.add(leftBrow, rightBrow);
+
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 0.06), skinMat);
+      nose.position.set(0, -0.01, 0.21);
+      const lips = new THREE.Mesh(
+        new THREE.BoxGeometry(0.11, 0.035, 0.03),
+        new THREE.MeshStandardMaterial({ color: character === 'maya' ? 0xb5445a : 0xb87a6b })
+      );
+      lips.position.set(0, -0.1, 0.2);
+      headGroup.add(nose, lips);
+
+      if (character === 'maya') {
+        const hairTop = new THREE.Mesh(new THREE.BoxGeometry(0.43, 0.16, 0.43), hairMat);
+        hairTop.position.y = 0.17;
+        const ponytail = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.48, 0.18), hairMat);
+        ponytail.position.set(0, -0.02, -0.25);
+        ponytail.rotation.x = 0.25;
+
+        const hoopMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.9 });
+        const hoopL = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.01, 8, 16), hoopMat);
+        hoopL.position.set(-0.21, -0.04, 0);
+        hoopL.rotation.y = Math.PI / 2;
+        const hoopR = hoopL.clone();
+        hoopR.position.x = 0.21;
+        headGroup.add(hairTop, ponytail, hoopL, hoopR);
+      } else {
+        const cap = new THREE.Mesh(
+          new THREE.BoxGeometry(0.43, 0.15, 0.43),
+          new THREE.MeshStandardMaterial({ color: style.accent })
+        );
+        cap.position.y = 0.17;
+        const visor = new THREE.Mesh(
+          new THREE.BoxGeometry(0.32, 0.04, 0.2),
+          new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        visor.position.set(0, 0.13, -0.26);
+        const stubble = new THREE.Mesh(
+          new THREE.BoxGeometry(0.41, 0.15, 0.41),
+          new THREE.MeshStandardMaterial({ color: 0x5c4638, transparent: true, opacity: 0.45 })
+        );
+        stubble.position.y = -0.14;
+        headGroup.add(cap, visor, stubble);
+      }
+      group.add(headGroup);
+
+      const armOffset = torsoW / 2 + 0.11;
+      function buildArm(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * armOffset, 1.54, 0);
+        const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.18), topMat);
+        sleeve.position.y = -0.12;
+        const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.46, 0.15), skinMat);
+        forearm.position.y = -0.44;
+        pivot.add(sleeve, forearm);
+        group.add(pivot);
+        return pivot;
+      }
+      const leftArm = buildArm(-1);
+      const rightArm = buildArm(1);
+
+      function buildLeg(side) {
+        const pivot = new THREE.Group();
+        pivot.position.set(side * 0.16, 0.82, 0);
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.72, 0.24), pantsMat);
+        leg.position.y = -0.36;
+        const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.12, 0.32), shoeMat);
+        shoe.position.set(0, -0.76, 0.04);
+        pivot.add(leg, shoe);
+        group.add(pivot);
+        return pivot;
+      }
+      const leftLeg = buildLeg(-1);
+      const rightLeg = buildLeg(1);
+
+      group.userData = { leftArm, rightArm, leftLeg, rightLeg };
+      scene.add(group);
+      return group;
+    }
+
+    // ==========================================
+    // 6. SCULPTED 3D VEHICLES WITH SPINNING WHEELS & HEADLIGHTS
+    // ==========================================
+    const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.32, 14);
+    wheelGeo.rotateZ(Math.PI / 2);
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.7 });
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xd0d8e0, metalness: 0.9, roughness: 0.2 });
+
+    function createVehicleMesh(colorHex, type = 'standard', modelId = 0) {
+      const group = new THREE.Group();
+      const isPolice = type === 'police';
+      const isExotic = type === 'exotic' || modelId >= 2;
+      const isBoat = type === 'boat';
+
+      if (isBoat) {
+        const hull = new THREE.Mesh(
+          new THREE.BoxGeometry(2.5, 0.75, 5.8),
+          new THREE.MeshStandardMaterial({ color: 0xf8f9fa, metalness: 0.5, roughness: 0.2 })
+        );
+        hull.position.y = 0.45;
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(2.55, 0.25, 5.2),
+          new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.35 })
+        );
+        stripe.position.y = 0.65;
+        const windshield = new THREE.Mesh(
+          new THREE.BoxGeometry(2.0, 0.45, 1.4),
+          new THREE.MeshStandardMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75 })
+        );
+        windshield.position.set(0, 1.0, 0.5);
+        const glow = new THREE.PointLight(0x00f0ff, 1.8, 10);
+        glow.position.set(0, 0.6, 0);
+        group.add(hull, stripe, windshield, glow);
+        scene.add(group);
+        return group;
+      }
+
+      // Main Lower Chassis + Sculpted Hood
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: isPolice ? 0x111118 : colorHex,
+        metalness: isExotic ? 0.85 : 0.65,
+        roughness: isExotic ? 0.14 : 0.25
+      });
+
+      const chassis = new THREE.Mesh(
+        new THREE.BoxGeometry(isExotic ? 2.38 : 2.22, isExotic ? 0.56 : 0.68, 4.6),
+        bodyMat
+      );
+      chassis.position.y = 0.62;
+      group.add(chassis);
+
+      // Sloped Cabin Roof
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(1.78, 0.54, 2.15),
+        new THREE.MeshStandardMaterial({
+          color: isPolice ? 0xffffff : 0x0c0c18,
+          metalness: 0.85,
+          roughness: 0.12
+        })
+      );
+      cabin.position.set(0, 1.16, -0.22);
+      group.add(cabin);
+
+      // Front Headlights & Rear Taillights
+      const headMat = new THREE.MeshBasicMaterial({ color: 0xe0ffff });
+      const hlL = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.16, 0.1), headMat);
+      hlL.position.set(-0.72, 0.68, 2.31);
+      const hlR = hlL.clone();
+      hlR.position.x = 0.72;
+
+      const tailMat = new THREE.MeshBasicMaterial({ color: 0xff1144 });
+      const tlL = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.15, 0.1), tailMat);
+      tlL.position.set(-0.68, 0.7, -2.31);
+      const tlR = tlL.clone();
+      tlR.position.x = 0.68;
+      group.add(hlL, hlR, tlL, tlR);
+
+      // Carbon Rear Wing for Sports/Exotic Models
+      if (isExotic || modelId >= 1) {
+        const wing = new THREE.Mesh(
+          new THREE.BoxGeometry(2.34, 0.09, 0.42),
+          new THREE.MeshStandardMaterial({ color: 0x111111 })
+        );
+        wing.position.set(0, 1.12, -2.1);
+        group.add(wing);
+      }
+
+      // Twin Nitro Exhaust Flame Cones
+      const flameMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+      const flameL = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 8), flameMat);
+      flameL.rotation.x = -Math.PI / 2;
+      flameL.position.set(-0.55, 0.45, -2.7);
+      flameL.visible = false;
+      const flameR = flameL.clone();
+      flameR.position.x = 0.55;
+      group.add(flameL, flameR);
+
+      // 4 Spinning Wheels with Alloy Rims
+      const wheels = [];
+      const wheelOffsets = [
+        [-1.12, 0.42, 1.45],
+        [1.12, 0.42, 1.45],
+        [-1.12, 0.42, -1.45],
+        [1.12, 0.42, -1.45]
+      ];
+      wheelOffsets.forEach(([wx, wy, wz]) => {
+        const wGroup = new THREE.Group();
+        const tire = new THREE.Mesh(wheelGeo, tireMat);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.34, 8).rotateZ(Math.PI / 2), rimMat);
+        wGroup.add(tire, rim);
+        wGroup.position.set(wx, wy, wz);
+        group.add(wGroup);
+        wheels.push(wGroup);
+      });
+
+      if (isPolice) {
+        const redBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.3), new THREE.MeshBasicMaterial({ color: 0xff0033 }));
+        redBar.position.set(-0.4, 1.54, -0.2);
+        const blueBar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.3), new THREE.MeshBasicMaterial({ color: 0x0088ff }));
+        blueBar.position.set(0.4, 1.54, -0.2);
+        group.add(redBar, blueBar);
+        group.userData = { wheels, flameL, flameR, redBar, blueBar };
+      } else {
+        const glow = new THREE.PointLight(isExotic ? 0xffd700 : colorHex, 1.5, 8);
+        glow.position.set(0, 0.4, 0);
+        group.add(glow);
+        group.userData = { wheels, flameL, flameR };
+      }
+
+      scene.add(group);
+      return group;
+    }
+
+    // ==========================================
+    // 7. WORLD VEHICLES, DRIFT SKIDS & PLAYER STATE
+    // ==========================================
+    const carPalette = [0xff2a85, 0x00f0ff, 0xffe600, 0x00ff88, 0xb537f2, 0xff5e00];
+    const vehicles = [];
+
+    const personalCar = {
+      mesh: createVehicleMesh(saveData.paintHex, 'standard', saveData.selectedCar),
+      x: 0,
+      z: 0,
+      y: 0,
+      vy: 0,
+      rot: 0,
+      speed: 0,
+      color: saveData.paintHex,
+      type: 'personal',
+      isNPC: false,
+      gpsTracked: false
+    };
+    vehicles.push(personalCar);
+
+    function rebuildPersonalCarMesh() {
+      scene.remove(personalCar.mesh);
+      personalCar.color = saveData.paintHex;
+      personalCar.mesh = createVehicleMesh(saveData.paintHex, 'standard', saveData.selectedCar);
+      personalCar.mesh.position.set(personalCar.x, personalCar.y, personalCar.z);
+      personalCar.mesh.rotation.y = personalCar.rot;
+    }
+
+    // 8 Traffic Cars + 3 Gold Apex GPS Supercars
+    for (let i = 0; i < 11; i++) {
+      const isExotic = i >= 8;
+      const cHex = isExotic ? 0xffd700 : carPalette[i % carPalette.length];
+      const v = {
+        mesh: createVehicleMesh(cHex, isExotic ? 'exotic' : 'standard', isExotic ? 2 : 0),
+        x: ((i % 5) - 2) * 100 + 25,
+        z: (Math.floor(i / 5) - 1) * 150 + 25,
+        y: 0,
+        vy: 0,
+        rot: (i % 2 === 0) ? 0 : Math.PI / 2,
+        speed: isExotic ? 0 : 0.35,
+        color: cHex,
+        type: isExotic ? 'exotic' : 'npc',
+        isNPC: true,
+        gpsTracked: isExotic
+      };
+      v.mesh.position.set(v.x, 0, v.z);
+      v.mesh.rotation.y = v.rot;
+      vehicles.push(v);
+    }
+
+    // 4 Docked Speedboats along Suncrest Beach
+    for (let b = 0; b < 4; b++) {
+      const boatColor = carPalette[(b + 1) % carPalette.length];
+      const boat = {
+        mesh: createVehicleMesh(boatColor, 'boat'),
+        x: 554,
+        z: -225 + b * 150,
+        y: 0,
+        vy: 0,
+        rot: Math.PI / 2,
+        speed: 0,
+        color: boatColor,
+        type: 'boat',
+        isNPC: false,
+        gpsTracked: false
+      };
+      boat.mesh.position.set(boat.x, 0, boat.z);
+      boat.mesh.rotation.y = boat.rot;
+      vehicles.push(boat);
+    }
+
+    // Drift Skid Trail Pool
+    const skidMarks = [];
+    const skidGeo = new THREE.PlaneGeometry(0.35, 1.1);
+    skidGeo.rotateX(-Math.PI / 2);
+    const skidMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.45 });
+
+    function spawnSkidMark(x, z, rot) {
+      const m = new THREE.Mesh(skidGeo, skidMat);
+      m.position.set(x, 0.06, z);
+      m.rotation.y = rot;
+      scene.add(m);
+      skidMarks.push({ mesh: m, life: 55 });
+      if (skidMarks.length > 90) {
+        const old = skidMarks.shift();
+        scene.remove(old.mesh);
+      }
+    }
+
+    const player = {
+      character: 'maya',
+      outfitIdx: 0,
+      mode: 'car',
+      currentCar: personalCar,
+      hostPeerId: null,
+      x: personalCar.x,
+      z: personalCar.z,
+      rot: 0,
+      bank: saveData.bank,
+      dirtyCash: 250,
+      fuel: 100,
+      nitro: 100,
+      wanted: 0,
+      wantedTimer: 0
+    };
+
+    let playerAvatar = createProtagonistMesh(player.character, player.outfitIdx);
+    playerAvatar.visible = false;
+
+    function rebuildAvatar() {
+      const wasVisible = playerAvatar.visible;
+      scene.remove(playerAvatar);
+      playerAvatar = createProtagonistMesh(player.character, player.outfitIdx);
+      playerAvatar.position.set(player.x, 0, player.z);
+      playerAvatar.rotation.y = player.rot;
+      playerAvatar.visible = wasVisible;
+    }
+
+    // ==========================================
+    // 8. TITLE SCREEN & GARAGE SHOP UI LOGIC
+    // ==========================================
+    let gameStarted = false;
+    const titleScreen = document.getElementById('title-screen');
+    const garageScreen = document.getElementById('garage-screen');
+    const hudEl = document.getElementById('hud');
+    const mobileCtrlEl = document.getElementById('mobile-controls');
+
+    function enterGame() {
+      AudioEngine.init();
+      gameStarted = true;
+      titleScreen.classList.add('hidden');
+      garageScreen.classList.add('hidden');
+      hudEl.classList.remove('hidden');
+      mobileCtrlEl.classList.remove('hidden');
+      updateMoneyHUD();
+    }
+
+    document.getElementById('btn-play').addEventListener('click', enterGame);
+
+    function renderGarageUI() {
+      document.getElementById('garage-bank').textContent = `BANK: $${player.bank.toLocaleString()}`;
+      document.getElementById('title-bank').textContent = `BANK BALANCE: $${player.bank.toLocaleString()}`;
+
+      // Render Vehicles
+      const carListEl = document.getElementById('garage-car-list');
+      carListEl.innerHTML = '';
+      CAR_MODELS.forEach((cm) => {
+        const owned = saveData.ownedCars.includes(cm.id);
+        const equipped = saveData.selectedCar === cm.id;
+        const div = document.createElement('div');
+        div.className = `shop-item ${equipped ? 'active' : ''}`;
+        div.innerHTML = `
+          <div>
+            <h3>${cm.name}</h3>
+            <span>${cm.desc} (${Math.round(cm.speedMult * 100)}% SPD)</span>
+          </div>
+          <button class="hud-btn ${equipped ? 'green' : (owned ? 'secondary' : 'gold')}">
+            ${equipped ? 'EQUIPPED' : (owned ? 'SELECT' : `BUY $${cm.price.toLocaleString()}`)}
+          </button>
+        `;
+        div.querySelector('button').addEventListener('click', () => {
+          if (owned) {
+            saveData.selectedCar = cm.id;
+            persistSave();
+            rebuildPersonalCarMesh();
+            renderGarageUI();
+          } else if (player.bank >= cm.price) {
+            player.bank -= cm.price;
+            saveData.ownedCars.push(cm.id);
+            saveData.selectedCar = cm.id;
+            persistSave();
+            updateMoneyHUD();
+            rebuildPersonalCarMesh();
+            renderGarageUI();
+            AudioEngine.playLevelUp();
+          } else {
+            showToast('NEED MORE BANK CASH! DEPOSIT AT AN ATM', '#ff2a85');
+          }
+        });
+        carListEl.appendChild(div);
+      });
+
+      // Render Performance Upgrades
+      const upListEl = document.getElementById('garage-upgrade-list');
+      upListEl.innerHTML = '';
+      const upgrades = [
+        { key: 'engineLvl', name: 'Engine Tune', max: 5, baseCost: 600, desc: 'Increases top speed' },
+        { key: 'nitroLvl', name: 'Nitro Tank', max: 5, baseCost: 500, desc: 'Faster nitro recharge' },
+        { key: 'armorLvl', name: 'Reinforced Frame', max: 5, baseCost: 500, desc: 'Better impact resistance' }
+      ];
+      upgrades.forEach((u) => {
+        const lvl = saveData[u.key];
+        const cost = lvl * u.baseCost;
+        const maxed = lvl >= u.max;
+        const div = document.createElement('div');
+        div.className = 'shop-item';
+        div.innerHTML = `
+          <div>
+            <h3>${u.name} (Lv.${lvl}/${u.max})</h3>
+            <span>${u.desc}</span>
+          </div>
+          <button class="hud-btn ${maxed ? 'green' : 'gold'}">
+            ${maxed ? 'MAXED' : `UPGRADE $${cost.toLocaleString()}`}
+          </button>
+        `;
+        div.querySelector('button').addEventListener('click', () => {
+          if (maxed) return;
+          if (player.bank >= cost) {
+            player.bank -= cost;
+            saveData[u.key]++;
+            persistSave();
+            updateMoneyHUD();
+            renderGarageUI();
+            AudioEngine.playLevelUp();
+          } else {
+            showToast('INSUFFICIENT BANK FUNDS', '#ff2a85');
+          }
+        });
+        upListEl.appendChild(div);
+      });
+
+      // Render Paint Swatches
+      const swatchRow = document.getElementById('garage-swatches');
+      swatchRow.innerHTML = '';
+      PAINT_SWATCHES.forEach((sw) => {
+        const btn = document.createElement('div');
+        btn.className = 'swatch';
+        btn.style.background = sw.css;
+        btn.title = sw.name;
+        btn.addEventListener('click', () => {
+          saveData.paintHex = sw.hex;
+          persistSave();
+          rebuildPersonalCarMesh();
+          showToast(`PAINT APPLIED: ${sw.name.toUpperCase()}`, '#00f0ff');
+        });
+        swatchRow.appendChild(btn);
+      });
+    }
+
+    function openGarage() {
+      renderGarageUI();
+      garageScreen.classList.remove('hidden');
+    }
+    document.getElementById('btn-open-garage').addEventListener('click', openGarage);
+    document.getElementById('btn-hud-garage').addEventListener('click', openGarage);
+    document.getElementById('btn-close-garage').addEventListener('click', () => {
+      garageScreen.classList.add('hidden');
+      if (!gameStarted) titleScreen.classList.remove('hidden');
+    });
+
+    // ==========================================
+    // 9. 5-LEVEL CAMPAIGN PROGRESSION (WITH LEVEL 5 FIX)
+    // ==========================================
+    const missionTitleEl = document.getElementById('mission-title');
+    const missionDescEl = document.getElementById('mission-desc');
+
+    const campaign = {
+      level: 1,
+      stoleExotic: false,
+      swappedHeatOutfit: false,
+      oceanRingsCleared: 0,
+      copsDisabled: 0
+    };
+
+    const LEVELS = [
+      {
+        id: 1,
+        title: 'LEVEL 1: FIRST DROP',
+        reward: 500,
+        setup() { relocateCheckpoint(false); },
+        getDesc() { return `Deposit $1,500 into Bank at a cyan ATM (Bank: $${player.bank.toLocaleString()}/$1,500)`; },
+        isComplete() { return player.bank >= 1500; }
+      },
+      {
+        id: 2,
+        title: 'LEVEL 2: APEX BOOST',
+        reward: 800,
+        setup() {
+          campaign.stoleExotic = false;
+          showToast('FIND & HIJACK A GOLD APEX SUPERCAR!', '#ffd700');
+        },
+        getDesc() {
+          if (!campaign.stoleExotic) return 'Exit car (F) & hijack a parked Gold Apex Supercar.';
+          return player.wanted > 0 ? `Evade the GPS pursuit! (${player.wanted}★ remaining)` : 'Escape complete!';
+        },
+        isComplete() { return campaign.stoleExotic && player.wanted === 0; }
+      },
+      {
+        id: 3,
+        title: 'LEVEL 3: GHOST PROTOCOL',
+        reward: 1000,
+        setup() {
+          campaign.swappedHeatOutfit = false;
+          if (player.wanted === 0) setWanted(2);
+          showToast('2-STAR HEAT! BREAK SIGHT & SWAP TRUNK OUTFIT (T)', '#00f0ff');
+        },
+        getDesc() { return 'With Heat Stars active, break pursuit distance & press T (Outfit) at your car.'; },
+        isComplete() { return campaign.swappedHeatOutfit; }
+      },
+      {
+        id: 4,
+        title: 'LEVEL 4: SUNCREST SMUGGLER',
+        reward: 1500,
+        setup() {
+          campaign.oceanRingsCleared = 0;
+          relocateCheckpoint(true);
+          showToast('HEAD EAST TO THE BEACH & BOARD A SPEEDBOAT!', '#00f0ff');
+        },
+        getDesc() { return `Pilot a Speedboat on the east ocean & clear 3 water beacons (${campaign.oceanRingsCleared}/3)`; },
+        isComplete() { return campaign.oceanRingsCleared >= 3; }
+      },
+      {
+        id: 5,
+        title: 'LEVEL 5: FEDERAL LOCKDOWN',
+        reward: 2500,
+        setup() {
+          campaign.copsDisabled = 0;
+          relocateCheckpoint(false);
+          setWanted(4);
+          showToast('4-STAR LOCKDOWN! DISABLE 2 PURSUIT UNITS (FIRE/E) & BANK $5,000', '#ff0044');
+        },
+        getDesc() { return `Disable 2 Pursuit Units (${campaign.copsDisabled}/2) & reach $5,000 Bank ($${player.bank.toLocaleString()}/$5,000)`; },
+        isComplete() { return campaign.copsDisabled >= 2 && player.bank >= 5000; }
+      }
+    ];
+
+    function startLevel(lvlNum) {
+      campaign.level = lvlNum;
+      if (lvlNum > LEVELS.length) {
+        missionTitleEl.textContent = 'CAMPAIGN COMPLETE — FREE ROAM';
+        missionDescEl.textContent = 'All 5 Suncrest Bay levels cleared! Customize cars in Garage.';
+        relocateCheckpoint(false);
+        return;
+      }
+      const lvl = LEVELS[lvlNum - 1];
+      lvl.setup();
+      updateMissionHUD();
+    }
+
+    function updateMissionHUD() {
+      if (campaign.level > LEVELS.length) return;
+      const lvl = LEVELS[campaign.level - 1];
+      missionTitleEl.textContent = lvl.title;
+      missionDescEl.textContent = lvl.getDesc();
+
+      if (lvl.isComplete()) {
+        AudioEngine.playLevelUp();
+        player.bank += lvl.reward;
+        persistSave();
+        updateMoneyHUD();
+        showToast(`${lvl.title} COMPLETE! +$${lvl.reward.toLocaleString()} BANK BONUS`, '#ffd700');
+        startLevel(campaign.level + 1);
+      }
+    }
+
+    document.getElementById('btn-next-lvl').addEventListener('click', () => {
+      const next = campaign.level >= LEVELS.length ? 1 : campaign.level + 1;
+      startLevel(next);
+      showToast(`JUMPED TO LEVEL ${next}`, '#ffd700');
+    });
+
+    // ==========================================
+    // 10. PROJECTILES & COMBAT
+    // ==========================================
+    const projectiles = [];
+    const bulletGeo = new THREE.SphereGeometry(0.24, 8, 8);
+    const bulletMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    let lastShotTime = 0;
+
+    function spawnBullet(x, z, rot, isLocal = true) {
+      const mesh = new THREE.Mesh(bulletGeo, bulletMat);
+      mesh.position.set(x + Math.sin(rot) * 1.5, 1.35, z + Math.cos(rot) * 1.5);
+      scene.add(mesh);
+      projectiles.push({ mesh, x: mesh.position.x, z: mesh.position.z, rot, life: 45, isLocal });
+    }
+
+    function fireWeapon() {
+      const now = Date.now();
+      if (now - lastShotTime < 180) return;
+      lastShotTime = now;
+      AudioEngine.playLaser();
+      spawnBullet(player.x, player.z, player.rot, true);
+
+      connections.forEach((conn) => {
+        if (conn.open) conn.send({ type: 'shoot', id: myPeerId, x: player.x, z: player.z, rot: player.rot });
+      });
+    }
+
+    // ==========================================
+    // 11. HUD, ACTIONS & CO-OP
+    // ==========================================
+    const toastEl = document.getElementById('toast');
+    const bankEl = document.getElementById('bank');
+    const cashEl = document.getElementById('cash');
+    const wantedEl = document.getElementById('wanted');
+    const nitroFillEl = document.getElementById('nitro-fill');
+    const fuelFillEl = document.getElementById('fuel-fill');
+    const speedDisplay = document.getElementById('speedometer');
+    const actionBtn = document.getElementById('btn-action');
+    const charBtn = document.getElementById('btn-char');
+    const titleCharBtn = document.getElementById('btn-title-char');
+    const radioBtn = document.getElementById('btn-radio');
+    const titleRadioBtn = document.getElementById('btn-title-radio');
+    let toastTimeout;
+
+    function showToast(msg, color = '#00ff88') {
+      toastEl.textContent = msg;
+      toastEl.style.color = color;
+      toastEl.style.borderColor = color;
+      toastEl.style.opacity = '1';
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => { toastEl.style.opacity = '0'; }, 2500);
+    }
+
+    function updateMoneyHUD() {
+      bankEl.textContent = `BANK: $${player.bank.toLocaleString()}`;
+      cashEl.textContent = `CASH: $${player.dirtyCash.toLocaleString()}`;
+      document.getElementById('title-bank').textContent = `BANK BALANCE: $${player.bank.toLocaleString()}`;
+    }
+
+    function setWanted(stars) {
+      player.wanted = Math.max(0, Math.min(5, stars));
+      player.wantedTimer = 540;
+      wantedEl.textContent = '★ '.repeat(player.wanted) + '☆ '.repeat(5 - player.wanted);
+      syncPoliceCount();
+    }
+
+    function switchCharacter() {
+      player.character = player.character === 'maya' ? 'jax' : 'maya';
+      charBtn.textContent = player.character.toUpperCase();
+      titleCharBtn.textContent = `CHAR: ${player.character.toUpperCase()}`;
+      rebuildAvatar();
+      showToast(`SELECTED ${player.character.toUpperCase()}`, '#ffd700');
+    }
+    charBtn.addEventListener('click', switchCharacter);
+    titleCharBtn.addEventListener('click', switchCharacter);
+
+    function toggleRadioState() {
+      const active = AudioEngine.toggleRadio();
+      radioBtn.textContent = active ? 'Radio: ON' : 'Radio: OFF';
+      titleRadioBtn.textContent = active ? 'SUNCREST FM: ON' : 'SUNCREST FM: OFF';
+      if (gameStarted) showToast(active ? 'SUNCREST FM SYNTHWAVE ON' : 'RADIO MUTED', '#00f0ff');
+    }
+    radioBtn.addEventListener('click', toggleRadioState);
+    titleRadioBtn.addEventListener('click', toggleRadioState);
+
+    function swapTrunkOutfit() {
+      const distToPersonal = Math.hypot(player.x - personalCar.x, player.z - personalCar.z);
+      if (player.mode === 'car' || distToPersonal < 6.5) {
+        player.outfitIdx = (player.outfitIdx + 1) % 3;
+        rebuildAvatar();
+        const outfitName = OUTFITS[player.character][player.outfitIdx].name;
+        const copClose = policeCars.some(p => Math.hypot(p.x - player.x, p.z - player.z) < 42);
+        if (player.wanted > 0 && !copClose && !(player.currentCar && player.currentCar.gpsTracked)) {
+          setWanted(Math.max(0, player.wanted - 2));
+          campaign.swappedHeatOutfit = true;
+          showToast(`OUTFIT: ${outfitName.toUpperCase()} — HEAT DROPPED!`, '#00f0ff');
+        } else {
+          showToast(`TRUNK OUTFIT: ${outfitName.toUpperCase()}`, '#ffd700');
+        }
+      } else {
+        showToast('STAND NEAR YOUR PERSONAL CAR TO SWAP OUTFITS', '#ff2a85');
+      }
+    }
+    document.getElementById('btn-outfit').addEventListener('click', swapTrunkOutfit);
+
+    function toggleVehicleMode() {
+      if (player.mode === 'passenger') {
+        player.mode = 'foot';
+        player.hostPeerId = null;
+        player.x += 2.5;
+        playerAvatar.position.set(player.x, 0, player.z);
+        playerAvatar.visible = true;
+        actionBtn.textContent = 'ENTER';
+        showToast('EXITED CO-OP PASSENGER SEAT', '#00f0ff');
+        return;
+      }
+
+      if (player.mode === 'car') {
+        player.mode = 'foot';
+        player.currentCar.speed = 0;
+        player.x = player.currentCar.x - Math.cos(player.currentCar.rot) * 2.5;
+        player.z = player.currentCar.z + Math.sin(player.currentCar.rot) * 2.5;
+        player.rot = player.currentCar.rot;
+        playerAvatar.position.set(player.x, 0, player.z);
+        playerAvatar.visible = true;
+        player.currentCar = null;
+        actionBtn.textContent = 'ENTER';
+        AudioEngine.updateEngine(0, false);
+        showToast('ON FOOT — APPROACH CAR, BOAT, OR ATM', '#00f0ff');
+      } else {
+        let closest = null;
+        let minDist = 6.5;
+        for (const v of vehicles) {
+          const dist = Math.hypot(player.x - v.x, player.z - v.z);
+          if (dist < minDist) {
+            minDist = dist;
+            closest = v;
+          }
+        }
+        if (closest) {
+          if (closest.isNPC) {
+            closest.isNPC = false;
+            if (closest.gpsTracked) {
+              campaign.stoleExotic = true;
+              setWanted(Math.max(2, player.wanted + 2));
+              showToast('APEX GPS TRACKER TRIGGERED! EVADE PURSUIT', '#ff0044');
+            } else {
+              setWanted(player.wanted + 1);
+              showToast('VEHICLE HIJACKED! +1 HEAT STAR', '#ff2a85');
+            }
+          }
+          player.mode = 'car';
+          player.currentCar = closest;
+          playerAvatar.visible = false;
+          actionBtn.textContent = 'EXIT';
+          if (closest.type === 'boat') showToast('PILOTING HYDRO-RUNNER SPEEDBOAT!', '#00f0ff');
+        } else {
+          showToast('NO CAR OR BOAT NEARBY', '#ffd700');
+        }
+      }
+    }
+
+    function toggleShotgunCoop() {
+      if (player.mode === 'passenger') {
+        toggleVehicleMode();
+        return;
+      }
+      let targetFriend = null;
+      let minDist = 8.0;
+      remotePlayers.forEach((rp, id) => {
+        if (rp.mode === 'car') {
+          const d = Math.hypot(player.x - rp.targetX, player.z - rp.targetZ);
+          if (d < minDist) {
+            minDist = d;
+            targetFriend = id;
+          }
+        }
+      });
+
+      if (targetFriend) {
+        player.mode = 'passenger';
+        player.hostPeerId = targetFriend;
+        player.currentCar = null;
+        playerAvatar.visible = false;
+        actionBtn.textContent = 'EXIT';
+        showToast('RIDING SHOTGUN! PRESS FIRE TO DEFEND DRIVER', '#00ff88');
+      } else {
+        showToast('STAND NEAR A FRIEND\'S CAR TO RIDE SHOTGUN', '#ffd700');
+      }
+    }
+    document.getElementById('btn-shotgun').addEventListener('click', toggleShotgunCoop);
+
+    // Cash Beacon Ring
+    const checkpointRing = new THREE.Mesh(
+      new THREE.TorusGeometry(3.4, 0.35, 12, 32),
+      new THREE.MeshBasicMaterial({ color: 0x00ff88 })
+    );
+    checkpointRing.rotation.x = Math.PI / 2;
+    checkpointRing.position.y = 1.2;
+    scene.add(checkpointRing);
+
+    function relocateCheckpoint(inOcean = false) {
+      if (inOcean || campaign.level === 4) {
+        const rx = 580 + Math.random() * 180;
+        const rz = (Math.floor(Math.random() * 10) - 5) * 60;
+        checkpointRing.position.set(rx, 1.2, rz);
+      } else {
+        const rx = (Math.floor(Math.random() * 14) - 7) * 50 + 25;
+        const rz = (Math.floor(Math.random() * 14) - 7) * 50 + 25;
+        checkpointRing.position.set(rx, 1.2, rz);
+      }
+    }
+
+    // Pursuit Cruisers
+    const policeCars = [];
+    function syncPoliceCount() {
+      while (policeCars.length < player.wanted) {
+        const angle = Math.random() * Math.PI * 2;
+        const pCar = {
+          mesh: createVehicleMesh(0x111118, 'police'),
+          x: Math.min(530, player.x + Math.cos(angle) * 78),
+          z: player.z + Math.sin(angle) * 78,
+          rot: 0,
+          hp: 3,
+          speed: 0.86 + player.wanted * 0.08
+        };
+        pCar.mesh.position.set(pCar.x, 0, pCar.z);
+        policeCars.push(pCar);
+      }
+      while (policeCars.length > player.wanted) {
+        scene.remove(policeCars.pop().mesh);
+      }
+    }
+
+    startLevel(1);
+
+    // ==========================================
+    // 12. WEBRTC MULTIPLAYER ENGINE (PEERJS)
+    // ==========================================
+    const statusEl = document.getElementById('net-status');
+    const titleNetEl = document.getElementById('title-net');
+    const countEl = document.getElementById('player-count');
+    const roomInput = document.getElementById('room-input');
+    const titleRoomInput = document.getElementById('title-room-input');
+
+    const shortCode = 'NC' + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const peer = new Peer(shortCode, {
+      config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+    });
+
+    const connections = new Map();
+    const remotePlayers = new Map();
+    let myPeerId = '';
+
+    function updatePlayerCount() {
+      countEl.textContent = `ONLINE: ${1 + remotePlayers.size}`;
+    }
+
+    function setupConnection(conn) {
+      conn.on('open', () => {
+        connections.set(conn.peer, conn);
+        const msg = `Connected! Room: ${myPeerId}`;
+        statusEl.textContent = msg;
+        titleNetEl.textContent = msg;
+      });
+      conn.on('data', (data) => {
+        if (data.id === myPeerId) return;
+        if (data.type === 'state') {
+          applyRemoteState(data);
+        } else if (data.type === 'shoot') {
+          spawnBullet(data.x, data.z, data.rot, false);
+        }
+        connections.forEach((otherConn, id) => {
+          if (id !== conn.peer && id !== data.id && otherConn.open) otherConn.send(data);
+        });
+      });
+      conn.on('close', () => removeRemotePlayer(conn.peer));
+      conn.on('error', () => removeRemotePlayer(conn.peer));
+    }
+
+    function applyRemoteState(data) {
+      let rp = remotePlayers.get(data.id);
+      if (!rp || rp.charType !== data.charType || rp.outfitIdx !== data.outfitIdx) {
+        if (rp) {
+          scene.remove(rp.carMesh);
+          scene.remove(rp.humanMesh);
+        }
+        rp = {
+          carMesh: createVehicleMesh(data.color || 0x00f0ff, data.vehType === 'boat' ? 'boat' : 'standard', 1),
+          humanMesh: createProtagonistMesh(data.charType || 'jax', data.outfitIdx || 0),
+          charType: data.charType || 'jax',
+          outfitIdx: data.outfitIdx || 0,
+          mode: data.mode || 'car',
+          targetX: data.x,
+          targetZ: data.z,
+          targetRot: data.rot
+        };
+        rp.carMesh.position.set(data.x, 0, data.z);
+        rp.humanMesh.position.set(data.x, 0, data.z);
+        remotePlayers.set(data.id, rp);
+        updatePlayerCount();
+      }
+      rp.mode = data.mode;
+      rp.targetX = data.x;
+      rp.targetZ = data.z;
+      rp.targetRot = data.rot;
+      rp.carMesh.visible = (data.mode === 'car');
+      rp.humanMesh.visible = (data.mode === 'foot');
+    }
+
+    function removeRemotePlayer(id) {
+      connections.delete(id);
+      const rp = remotePlayers.get(id);
+      if (rp) {
+        scene.remove(rp.carMesh);
+        scene.remove(rp.humanMesh);
+        remotePlayers.delete(id);
+        updatePlayerCount();
+      }
+    }
+
+    peer.on('open', (id) => {
+      myPeerId = id;
+      const readyTxt = `Room Code: ${id} (Ready)`;
+      statusEl.textContent = readyTxt;
+      titleNetEl.textContent = readyTxt;
+      const joinCode = new URLSearchParams(window.location.search).get('join');
+      if (joinCode && joinCode !== id) {
+        roomInput.value = joinCode;
+        titleRoomInput.value = joinCode;
+        connectToHost(joinCode);
+        enterGame();
+      }
+    });
+    peer.on('connection', (conn) => setupConnection(conn));
+
+    function connectToHost(hostId) {
+      const cleanId = hostId.trim().toUpperCase();
+      if (!cleanId || cleanId === myPeerId || connections.has(cleanId)) return;
+      statusEl.textContent = `Joining ${cleanId}...`;
+      titleNetEl.textContent = `Joining ${cleanId}...`;
+      setupConnection(peer.connect(cleanId, { reliable: false }));
+    }
+
+    document.getElementById('btn-join').addEventListener('click', () => connectToHost(roomInput.value));
+    document.getElementById('btn-title-join').addEventListener('click', () => {
+      connectToHost(titleRoomInput.value);
+      enterGame();
+    });
+
+    async function copyInvite() {
+      const url = new URL(window.location.href);
+      url.searchParams.set('join', myPeerId);
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        statusEl.textContent = 'Invite link copied! Send to phones.';
+        titleNetEl.textContent = 'Invite link copied! Paste in WhatsApp/Telegram.';
+      } catch {
+        statusEl.textContent = `Share Code: ${myPeerId}`;
+        titleNetEl.textContent = `Share Code: ${myPeerId}`;
+      }
+    }
+    document.getElementById('btn-copy-link').addEventListener('click', copyInvite);
+    document.getElementById('btn-title-invite').addEventListener('click', copyInvite);
+
+    setInterval(() => {
+      if (connections.size === 0) return;
+      const packet = {
+        type: 'state',
+        id: myPeerId,
+        charType: player.character,
+        outfitIdx: player.outfitIdx,
+        vehType: player.currentCar ? player.currentCar.type : 'standard',
+        mode: player.mode,
+        x: Number(player.x.toFixed(2)),
+        z: Number(player.z.toFixed(2)),
+        rot: Number(player.rot.toFixed(3)),
+        color: player.currentCar ? player.currentCar.color : saveData.paintHex
+      };
+      connections.forEach((conn) => { if (conn.open) conn.send(packet); });
+    }, 33);
+
+    // ==========================================
+    // 13. INPUTS & TOUCH CONTROLS
+    // ==========================================
+    const input = { up: false, down: false, left: false, right: false, drift: false, nitro: false };
+
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement === roomInput || document.activeElement === titleRoomInput) return;
+      if (!gameStarted && e.code === 'Enter') { enterGame(); return; }
+      AudioEngine.init();
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') input.up = true;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') input.down = true;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = true;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = true;
+      if (e.code === 'Space') input.drift = true;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.nitro = true;
+      if (e.code === 'KeyF') toggleVehicleMode();
+      if (e.code === 'KeyG') toggleShotgunCoop();
+      if (e.code === 'KeyE') fireWeapon();
+      if (e.code === 'KeyT') swapTrunkOutfit();
+      if (e.code === 'KeyR') toggleRadioState();
+      if (e.code === 'KeyB') openGarage();
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') input.up = false;
+      if (e.code === 'KeyS' || e.code === 'ArrowDown') input.down = false;
+      if (e.code === 'KeyA' || e.code === 'ArrowLeft') input.left = false;
+      if (e.code === 'KeyD' || e.code === 'ArrowRight') input.right = false;
+      if (e.code === 'Space') input.drift = false;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') input.nitro = false;
+    });
+
+    function bindTouch(id, key) {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); AudioEngine.init(); input[key] = true; });
+      el.addEventListener('touchend', (e) => { e.preventDefault(); input[key] = false; });
+      el.addEventListener('mousedown', () => { AudioEngine.init(); input[key] = true; });
+      el.addEventListener('mouseup', () => input[key] = false);
+    }
+    bindTouch('btn-gas', 'up');
+    bindTouch('btn-brake', 'down');
+    bindTouch('btn-left', 'left');
+    bindTouch('btn-right', 'right');
+    bindTouch('btn-nitro', 'nitro');
+    actionBtn.addEventListener('touchstart', (e) => { e.preventDefault(); toggleVehicleMode(); });
+    actionBtn.addEventListener('click', toggleVehicleMode);
+    document.getElementById('btn-fire').addEventListener('touchstart', (e) => { e.preventDefault(); fireWeapon(); });
+    document.getElementById('btn-fire').addEventListener('click', fireWeapon);
+
+    // ==========================================
+    // 14. COLLISION & RADAR MINIMAP
+    // ==========================================
+    function hitsBuilding(nx, nz, pad = 0) {
+      for (const b of buildings) {
+        if (Math.abs(nx - b.x) < b.halfW + pad && Math.abs(nz - b.z) < b.halfD + pad) return true;
+      }
+      return false;
+    }
+
+    const radarCanvas = document.getElementById('radar');
+    const rCtx = radarCanvas.getContext('2d');
+
+    function drawRadar() {
+      rCtx.clearRect(0, 0, 102, 102);
+      const cx = 51, cy = 51, scale = 0.36;
+
+      rCtx.save();
+      rCtx.translate(cx, cy);
+      rCtx.rotate(player.rot);
+
+      const waterRelX = -(WATER_LINE_X - player.x) * scale;
+      rCtx.fillStyle = 'rgba(0, 119, 182, 0.45)';
+      rCtx.fillRect(-150, -150, waterRelX + 150, 300);
+
+      rCtx.fillStyle = 'rgba(255, 42, 133, 0.35)';
+      for (const b of buildings) {
+        const dx = (b.x - player.x) * scale;
+        const dz = (b.z - player.z) * scale;
+        if (Math.abs(dx) < 62 && Math.abs(dz) < 62) {
+          rCtx.fillRect(-dx - b.halfW * scale, -dz - b.halfD * scale, b.halfW * 2 * scale, b.halfD * 2 * scale);
+        }
+      }
+
+      rCtx.fillStyle = '#00f0ff';
+      for (const atm of atmZones) {
+        rCtx.fillRect(-(atm.x - player.x) * scale - 3, -(atm.z - player.z) * scale - 3, 6, 6);
+      }
+
+      const cpx = -(checkpointRing.position.x - player.x) * scale;
+      const cpz = -(checkpointRing.position.z - player.z) * scale;
+      rCtx.fillStyle = '#00ff88';
+      rCtx.beginPath();
+      rCtx.arc(Math.max(-44, Math.min(44, cpx)), Math.max(-44, Math.min(44, cpz)), 4, 0, Math.PI * 2);
+      rCtx.fill();
+
+      rCtx.fillStyle = '#ff0044';
+      for (const p of policeCars) {
+        rCtx.beginPath();
+        rCtx.arc(-(p.x - player.x) * scale, -(p.z - player.z) * scale, 3.5, 0, Math.PI * 2);
+        rCtx.fill();
+      }
+
+      rCtx.fillStyle = '#ffd700';
+      remotePlayers.forEach((rp) => {
+        rCtx.beginPath();
+        rCtx.arc(-(rp.targetX - player.x) * scale, -(rp.targetZ - player.z) * scale, 3.5, 0, Math.PI * 2);
+        rCtx.fill();
+      });
+
+      rCtx.restore();
+
+      rCtx.fillStyle = '#ffffff';
+      rCtx.beginPath();
+      rCtx.moveTo(cx, cy - 5);
+      rCtx.lineTo(cx - 4, cy + 4);
+      rCtx.lineTo(cx + 4, cy + 4);
+      rCtx.closePath();
+      rCtx.fill();
+    }
+
+    // ==========================================
+    // 15. MAIN SIMULATION LOOP
+    // ==========================================
+    let frame = 0;
+    let walkCycle = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      frame++;
+
+      ocean.position.y = -0.1 + Math.sin(frame * 0.04) * 0.12;
+
+      // Cinematic Orbiting Camera on 3D Title Screen
+      if (!gameStarted) {
+        const orbitAngle = frame * 0.006;
+        camera.position.set(
+          personalCar.x + Math.sin(orbitAngle) * 14,
+          6.2,
+          personalCar.z + Math.cos(orbitAngle) * 14
+        );
+        camera.lookAt(personalCar.x, 1.4, personalCar.z);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // Fade out drift skid marks
+      for (let s = skidMarks.length - 1; s >= 0; s--) {
+        skidMarks[s].life--;
+        if (skidMarks[s].life <= 0) {
+          scene.remove(skidMarks[s].mesh);
+          skidMarks.splice(s, 1);
+        }
+      }
+
+      // A. Player Movement (Driving, Co-Op Gunner, or On-Foot)
+      if (player.mode === 'passenger' && player.hostPeerId) {
+        const host = remotePlayers.get(player.hostPeerId);
+        if (host && host.mode === 'car') {
+          player.x = host.carMesh.position.x;
+          player.z = host.carMesh.position.z;
+          if (input.left) player.rot += 0.06;
+          if (input.right) player.rot -= 0.06;
+          speedDisplay.textContent = 'CO-OP GUNNER';
+          AudioEngine.updateEngine(0, false);
+        } else {
+          toggleVehicleMode();
+        }
+      } else if (player.mode === 'car' && player.currentCar) {
+        const c = player.currentCar;
+        const isBoat = c.type === 'boat';
+        const isPersonal = c.type === 'personal';
+        const carSpec = isPersonal ? CAR_MODELS[saveData.selectedCar] : { speedMult: 1.0, handling: 1.0 };
+        const engineBonus = isPersonal ? (1 + (saveData.engineLvl - 1) * 0.06) : 1.0;
+
+        const hasFuel = player.fuel > 0;
+        const nitroActive = input.nitro && player.nitro > 1 && input.up;
+        if (nitroActive) {
+          player.nitro = Math.max(0, player.nitro - 0.55);
+        } else {
+          player.nitro = Math.min(100, player.nitro + 0.08 * saveData.nitroLvl);
+        }
+
+        const baseMax = isBoat ? 1.65 : (c.type === 'exotic' ? 1.9 : 1.52 * carSpec.speedMult * engineBonus);
+        const maxSpeed = hasFuel ? (nitroActive ? baseMax * 1.28 : baseMax) : 0.35;
+        const accel = hasFuel ? (nitroActive ? 0.052 : 0.032) : 0.008;
+
+        if (input.up) {
+          c.speed += accel;
+          if (hasFuel) player.fuel = Math.max(0, player.fuel - 0.01);
+        }
+        if (input.down) c.speed -= accel * 1.25;
+        c.speed *= 0.97;
+        c.speed = Math.max(-0.55, Math.min(maxSpeed, c.speed));
+
+        const isDrifting = !isBoat && input.drift && Math.abs(c.speed) > 0.55 && (input.left || input.right);
+        if (Math.abs(c.speed) > 0.02) {
+          const turn = (isDrifting ? 0.058 : 0.036) * carSpec.handling * (c.speed > 0 ? 1 : -1);
+          if (input.left) c.rot += turn;
+          if (input.right) c.rot -= turn;
+        }
+
+        if (isDrifting) {
+          player.nitro = Math.min(100, player.nitro + 0.35);
+          if (frame % 2 === 0 && c.y <= 0.05) {
+            spawnSkidMark(c.x - Math.cos(c.rot) * 0.9, c.z + Math.sin(c.rot) * 0.9, c.rot);
+            spawnSkidMark(c.x + Math.cos(c.rot) * 0.9, c.z - Math.sin(c.rot) * 0.9, c.rot);
+          }
+        }
+
+        // Stunt Ramp Launch Physics
+        if (!isBoat && c.y <= 0.05) {
+          for (const r of stuntRamps) {
+            if (Math.hypot(c.x - r.x, c.z - r.z) < 6.0 && Math.abs(c.speed) > 0.85) {
+              c.vy = 0.42;
+              player.dirtyCash += 100;
+              updateMoneyHUD();
+              showToast('STUNT JUMP! +$100 DIRTY CASH', '#00f0ff');
+              break;
+            }
+          }
+        }
+        if (c.y > 0 || c.vy > 0) {
+          c.y += c.vy;
+          c.vy -= 0.018;
+          if (c.y <= 0) { c.y = 0; c.vy = 0; }
+        }
+
+        const nx = c.x + Math.sin(c.rot) * c.speed;
+        const nz = c.z + Math.cos(c.rot) * c.speed;
+
+        const validTerrain = isBoat ? (nx > WATER_LINE_X - 2) : (nx < WATER_LINE_X + 3 && !hitsBuilding(nx, nz));
+        if (validTerrain) {
+          c.x = nx;
+          c.z = nz;
+        } else {
+          c.speed = -c.speed * 0.4;
+        }
+
+        c.mesh.position.set(c.x, isBoat ? ocean.position.y + 0.1 : c.y, c.z);
+        c.mesh.rotation.y = c.rot;
+        c.mesh.rotation.x = isBoat ? 0 : -c.vy * 0.65; // Pitch nose up on jumps
+
+        // Spin Wheels & Toggle Nitro Flames
+        if (c.mesh.userData && c.mesh.userData.wheels) {
+          c.mesh.userData.wheels.forEach(w => { w.rotation.x += c.speed * 0.55; });
+          c.mesh.userData.flameL.visible = nitroActive;
+          c.mesh.userData.flameR.visible = nitroActive;
+        }
+
+        player.x = c.x;
+        player.z = c.z;
+        player.rot = c.rot;
+
+        nitroFillEl.style.width = `${Math.round(player.nitro)}%`;
+        fuelFillEl.style.width = `${Math.round(player.fuel)}%`;
+        speedDisplay.textContent = `${Math.round(Math.abs(c.speed) * (isBoat ? 95 : 145))} ${isBoat ? 'KNOTS' : 'KM/H'}`;
+        AudioEngine.updateEngine(Math.abs(c.speed) / baseMax, true, nitroActive);
+      } else {
+        AudioEngine.updateEngine(0, false);
+        const walkSpeed = input.drift ? 0.42 : 0.24;
+        if (input.left) player.rot += 0.055;
+        if (input.right) player.rot -= 0.055;
+
+        let move = 0;
+        if (input.up) move = walkSpeed;
+        if (input.down) move = -walkSpeed * 0.7;
+
+        const nx = player.x + Math.sin(player.rot) * move;
+        const nz = player.z + Math.cos(player.rot) * move;
+        if (!hitsBuilding(nx, nz, -0.7) && nx < WATER_LINE_X + 4) {
+          player.x = nx;
+          player.z = nz;
+        }
+
+        playerAvatar.position.set(player.x, 0, player.z);
+        playerAvatar.rotation.y = player.rot;
+
+        const { leftArm, rightArm, leftLeg, rightLeg } = playerAvatar.userData;
+        if (Math.abs(move) > 0.01) {
+          walkCycle += input.drift ? 0.28 : 0.18;
+          const swing = Math.sin(walkCycle) * 0.65;
+          leftLeg.rotation.x = swing;
+          rightLeg.rotation.x = -swing;
+          leftArm.rotation.x = -swing * 0.8;
+          rightArm.rotation.x = swing * 0.8;
+        } else {
+          leftLeg.rotation.x = 0;
+          rightLeg.rotation.x = 0;
+          leftArm.rotation.x = 0;
+          rightArm.rotation.x = 0;
+        }
+        speedDisplay.textContent = move !== 0 ? (input.drift ? 'SPRINT' : 'WALK') : 'IDLE';
+      }
+
+      // B. Projectiles & Pursuit Takedowns
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const b = projectiles[i];
+        b.x += Math.sin(b.rot) * 2.6;
+        b.z += Math.cos(b.rot) * 2.6;
+        b.mesh.position.set(b.x, 1.35, b.z);
+        b.life--;
+
+        let hit = hitsBuilding(b.x, b.z, -0.5);
+        for (let j = policeCars.length - 1; j >= 0; j--) {
+          const p = policeCars[j];
+          if (Math.hypot(b.x - p.x, b.z - p.z) < 2.8) {
+            hit = true;
+            p.hp--;
+            if (p.hp <= 0) {
+              AudioEngine.playExplosion();
+              scene.remove(p.mesh);
+              policeCars.splice(j, 1);
+              if (b.isLocal) {
+                campaign.copsDisabled++;
+                player.dirtyCash += 250;
+                updateMoneyHUD();
+                showToast('PURSUIT UNIT DISABLED! +$250 DIRTY CASH', '#ff2a85');
+              }
+            }
+            break;
+          }
+        }
+
+        if (hit || b.life <= 0) {
+          scene.remove(b.mesh);
+          projectiles.splice(i, 1);
+        }
+      }
+
+      // C. ATM Deposit & Fuel Station
+      if (player.dirtyCash > 0) {
+        for (const atm of atmZones) {
+          if (Math.hypot(player.x - atm.x, player.z - atm.z) < 4.5) {
+            player.bank += player.dirtyCash;
+            persistSave();
+            showToast(`ATM DEPOSIT: +$${player.dirtyCash.toLocaleString()} SECURED!`, '#00f0ff');
+            player.dirtyCash = 0;
+            updateMoneyHUD();
+            break;
+          }
+        }
+      }
+
+      if (player.mode === 'car' && player.fuel < 99) {
+        for (const fz of fuelZones) {
+          if (Math.hypot(player.x - fz.x, player.z - fz.z) < 5.2) {
+            player.fuel = Math.min(100, player.fuel + 0.65);
+          }
+        }
+      }
+
+      // D. NPC Traffic
+      for (const v of vehicles) {
+        if (!v.isNPC || v.speed === 0) continue;
+        const nx = v.x + Math.sin(v.rot) * v.speed;
+        const nz = v.z + Math.cos(v.rot) * v.speed;
+        if (hitsBuilding(nx, nz) || Math.abs(nx) > 440 || Math.abs(nz) > 440) {
+          v.rot += Math.PI / 2;
+        } else {
+          v.x = nx;
+          v.z = nz;
+        }
+        v.mesh.position.set(v.x, 0, v.z);
+        v.mesh.rotation.y = v.rot;
+        if (v.mesh.userData && v.mesh.userData.wheels) {
+          v.mesh.userData.wheels.forEach(w => { w.rotation.x += v.speed * 0.5; });
+        }
+
+        if (player.mode === 'car' && player.currentCar.y < 0.5 && Math.hypot(player.x - v.x, player.z - v.z) < 3.4) {
+          player.currentCar.speed *= -0.45;
+          if (player.wanted === 0) {
+            setWanted(1);
+            showToast('COLLISION REPORTED! PURSUIT ALERTED', '#ff2a85');
+          }
+        }
+      }
+
+      // E. Pursuit Chase AI + Level 5 Reinforcement Fix
+      if (campaign.level === 5 && campaign.copsDisabled < 2 && player.wanted < 3) {
+        setWanted(3);
+      }
+
+      for (const p of policeCars) {
+        const dx = Math.min(WATER_LINE_X - 5, player.x) - p.x;
+        const dz = player.z - p.z;
+        const dist = Math.hypot(dx, dz);
+        p.rot = Math.atan2(dx, dz);
+
+        const nx = p.x + Math.sin(p.rot) * p.speed;
+        const nz = p.z + Math.cos(p.rot) * p.speed;
+        if (!hitsBuilding(nx, nz) && nx < WATER_LINE_X - 2) {
+          p.x = nx;
+          p.z = nz;
+        } else {
+          p.x += Math.cos(p.rot) * p.speed;
+        }
+        p.mesh.position.set(p.x, 0, p.z);
+        p.mesh.rotation.y = p.rot;
+        if (p.mesh.userData.wheels) {
+          p.mesh.userData.wheels.forEach(w => { w.rotation.x += p.speed * 0.55; });
+        }
+
+        const flash = Math.floor(frame / 8) % 2 === 0;
+        p.mesh.userData.redBar.visible = flash;
+        p.mesh.userData.blueBar.visible = !flash;
+
+        if (dist < 3.6 && (player.mode === 'foot' || (player.currentCar.y < 0.5 && Math.abs(player.currentCar.speed) < 0.25))) {
+          const lostCash = player.dirtyCash;
+          player.dirtyCash = 0;
+          updateMoneyHUD();
+          setWanted(campaign.level === 5 ? 3 : 0);
+          showToast(`CAPTURED! LOST $${lostCash.toLocaleString()} UNBANKED CASH`, '#ff0044');
+        }
+      }
+
+      const closestCop = policeCars.reduce((min, p) => Math.min(min, Math.hypot(p.x - player.x, p.z - player.z)), 999);
+      if (player.wanted > 0 && campaign.level !== 5 && (!(player.currentCar && player.currentCar.gpsTracked) || closestCop > 65)) {
+        player.wantedTimer--;
+        if (player.wantedTimer <= 0) {
+          setWanted(player.wanted - 1);
+          if (player.wanted === 0) showToast('ESCAPED PURSUIT!', '#00f0ff');
+        }
+      }
+
+      // F. Beacon Collection
+      checkpointRing.rotation.z += 0.04;
+      if (Math.hypot(player.x - checkpointRing.position.x, player.z - checkpointRing.position.z) < 5.0) {
+        if (campaign.level === 4 && player.currentCar && player.currentCar.type === 'boat') {
+          campaign.oceanRingsCleared++;
+          player.dirtyCash += 450;
+          showToast(`OFFSHORE BEACON ${campaign.oceanRingsCleared}/3! +$450`, '#00f0ff');
+        } else {
+          player.dirtyCash += 450;
+          showToast('+$450 DIRTY CASH — DEPOSIT AT CYAN ATM!');
+        }
+        updateMoneyHUD();
+        relocateCheckpoint(campaign.level === 4);
+      }
+
+      // G. Remote Multiplayer Interpolation
+      remotePlayers.forEach((rp) => {
+        const targetObj = rp.mode === 'car' ? rp.carMesh : rp.humanMesh;
+        targetObj.position.x += (rp.targetX - targetObj.position.x) * 0.25;
+        targetObj.position.z += (rp.targetZ - targetObj.position.z) * 0.25;
+        targetObj.rotation.y += (rp.targetRot - targetObj.rotation.y) * 0.25;
+      });
+
+      // H. Dynamic Chase Camera (Zooms out slightly during Nitro)
+      const isDriving = player.mode === 'car' || player.mode === 'passenger';
+      const nitroZoom = (isDriving && input.nitro && player.nitro > 1) ? -2.2 : 0;
+      const camDist = isDriving ? (-12 + nitroZoom) : -5.8;
+      const camHeight = isDriving ? 5.5 : 3.1;
+      const carY = (player.mode === 'car' && player.currentCar) ? player.currentCar.y : 0;
+      const camOffset = new THREE.Vector3(0, camHeight, camDist).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.rot);
+      camera.position.lerp(new THREE.Vector3(player.x, carY, player.z).add(camOffset), 0.14);
+      camera.lookAt(player.x, carY + 1.5, player.z);
+
+      updateMissionHUD();
+      drawRadar();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    updateMoneyHUD();
+    animate();
+  </script>
+</body>
+</html>
