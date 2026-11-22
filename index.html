@@ -2757,8 +2757,8 @@
           if (player.bustMeter === 45) showToast('THEY ARE ABOUT TO BUST YOU - DRIVE!', '#ff9e00');
           if (player.bustMeter >= 90) {
             player.bustMeter = 0;
-            const lostCash = player.dirtyCash;
-            player.dirtyCash = 0;
+            const lostCash = Math.min(player.dirtyCash, 50); // V6.1: bust penalty capped at $50
+            player.dirtyCash -= lostCash;
             updateMoneyHUD();
             setWanted(campaign.level === 5 ? 3 : 0);
             showToast(`CAPTURED! LOST $${lostCash.toLocaleString()} UNBANKED CASH`, '#ff0044');
