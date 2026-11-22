@@ -1599,7 +1599,8 @@
       stoleExotic: false,
       swappedHeatOutfit: false,
       oceanRingsCleared: 0,
-      copsDisabled: 0
+      copsDisabled: 0,
+      courierDrops: 0
     };
 
     const LEVELS = [
@@ -1661,6 +1662,65 @@
         },
         getDesc() { return `Disable 2 Pursuit Units (${campaign.copsDisabled}/2) & reach $5,000 Bank ($${player.bank.toLocaleString()}/$5,000)`; },
         isComplete() { return campaign.copsDisabled >= 2 && player.bank >= 5000; }
+      },
+      {
+        id: 6,
+        title: 'LEVEL 6: NEON COURIER',
+        reward: 1800,
+        setup() {
+          campaign.courierDrops = 0;
+          relocateCheckpoint(false);
+          showToast('COURIER RUN! HIT 3 CITY CHECKPOINTS - EACH PAYS $450 CASH', '#00f0ff');
+        },
+        getDesc() { return `Deliver to 3 checkpoints across Suncrest Bay (${campaign.courierDrops}/3)`; },
+        isComplete() { return campaign.courierDrops >= 3; }
+      },
+      {
+        id: 7,
+        title: 'LEVEL 7: HEAVY HEAT',
+        reward: 2000,
+        setup() {
+          if (player.wanted < 3) setWanted(3);
+          showToast('3-STAR HEAT! BANK $7,500 WHILE THE CITY HUNTS YOU', '#ff9e00');
+        },
+        getDesc() { return `Reach $7,500 Bank under 3-star heat (Bank: $${player.bank.toLocaleString()}/$7,500)`; },
+        isComplete() { return player.bank >= 7500; }
+      },
+      {
+        id: 8,
+        title: 'LEVEL 8: HARBOUR RUN',
+        reward: 2200,
+        setup() {
+          campaign.oceanRingsCleared = 0;
+          relocateCheckpoint(true);
+          showToast('BOARD A SPEEDBOAT & CLEAR 4 OFFSHORE BEACONS!', '#00f0ff');
+        },
+        getDesc() { return `Pilot a Speedboat & clear 4 water beacons (${campaign.oceanRingsCleared}/4)`; },
+        isComplete() { return campaign.oceanRingsCleared >= 4; }
+      },
+      {
+        id: 9,
+        title: 'LEVEL 9: TAKEDOWN KING',
+        reward: 3000,
+        setup() {
+          campaign.copsDisabled = 0;
+          relocateCheckpoint(false);
+          setWanted(4);
+          showToast('4-STAR WAR! DISABLE 3 PURSUIT UNITS (FIRE WITH E)', '#ff0044');
+        },
+        getDesc() { return `Disable 3 Pursuit Units (${campaign.copsDisabled}/3)`; },
+        isComplete() { return campaign.copsDisabled >= 3; }
+      },
+      {
+        id: 10,
+        title: 'LEVEL 10: SUNCREST LEGEND',
+        reward: 5000,
+        setup() {
+          setWanted(4);
+          showToast('FINAL SCORE! BANK $12,000 & BECOME THE SUNCREST LEGEND', '#ffd700');
+        },
+        getDesc() { return `Reach $12,000 Bank (Bank: $${player.bank.toLocaleString()}/$12,000)`; },
+        isComplete() { return player.bank >= 12000; }
       }
     ];
 
@@ -1669,7 +1729,7 @@
       campaign.level = lvlNum;
       if (lvlNum > LEVELS.length) {
         missionTitleEl.textContent = 'CAMPAIGN COMPLETE — FREE ROAM';
-        missionDescEl.textContent = 'All 5 Suncrest Bay levels cleared! Customize cars in Garage.';
+        missionDescEl.textContent = 'All 10 Suncrest Bay levels cleared! Free roam - checkpoints keep paying $450. Customize cars in the Garage.';
         relocateCheckpoint(false);
         return;
       }
@@ -2685,16 +2745,21 @@
       // F. Beacon Collection
       checkpointRing.rotation.z += 0.04;
       if (Math.hypot(player.x - checkpointRing.position.x, player.z - checkpointRing.position.z) < 5.0) {
-        if (campaign.level === 4 && player.currentCar && player.currentCar.type === 'boat') {
+        if ((campaign.level === 4 || campaign.level === 8) && player.currentCar && player.currentCar.type === 'boat') {
           campaign.oceanRingsCleared++;
           player.dirtyCash += 450;
-          showToast(`OFFSHORE BEACON ${campaign.oceanRingsCleared}/3! +$450`, '#00f0ff');
+          const ringTarget = campaign.level === 4 ? 3 : 4;
+          showToast(`OFFSHORE BEACON ${campaign.oceanRingsCleared}/${ringTarget}! +$450`, '#00f0ff');
+        } else if (campaign.level === 6) {
+          campaign.courierDrops++;
+          player.dirtyCash += 450;
+          showToast(`DROP ${campaign.courierDrops}/3 DELIVERED! +$450 DIRTY CASH`, '#00f0ff');
         } else {
           player.dirtyCash += 450;
           showToast('+$450 DIRTY CASH — DEPOSIT AT CYAN ATM!');
         }
         updateMoneyHUD();
-        relocateCheckpoint(campaign.level === 4);
+        relocateCheckpoint(campaign.level === 4 || campaign.level === 8);
       }
 
       // G. Remote Multiplayer Interpolation
