@@ -465,7 +465,7 @@
     const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 750);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.12;
@@ -494,16 +494,16 @@
     };
     CG.init();
 
-    scene.add(new THREE.HemisphereLight(0x8a7bff, 0x1a0f2e, 0.5));
+    scene.add(new THREE.HemisphereLight(0x8a7bff, 0x1a0f2e, 0.35));
     scene.add(new THREE.AmbientLight(0xff88bb, 0.45));
-    const dirLight = new THREE.DirectionalLight(0xa8c8ff, 1.15);
+    const dirLight = new THREE.DirectionalLight(0xa8c8ff, 1.0);
     dirLight.position.set(60, 140, 40);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
-    dirLight.shadow.camera.left = -95;
-    dirLight.shadow.camera.right = 95;
-    dirLight.shadow.camera.top = 95;
-    dirLight.shadow.camera.bottom = -95;
+    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.camera.left = -70;
+    dirLight.shadow.camera.right = 70;
+    dirLight.shadow.camera.top = 70;
+    dirLight.shadow.camera.bottom = -70;
     dirLight.shadow.camera.near = 10;
     dirLight.shadow.camera.far = 340;
     dirLight.shadow.bias = -0.0006;
@@ -629,7 +629,7 @@
 
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(1000, 1400),
-      new THREE.MeshStandardMaterial({ map: createGroundTexture(), roughness: 0.58, metalness: 0.32 })
+      new THREE.MeshStandardMaterial({ map: createGroundTexture(), roughness: 0.7, metalness: 0.15 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.x = -25;
@@ -1298,12 +1298,12 @@
         hl.position.set(hx, 0.66, 2.32);
         group.add(hl);
       });
-      const beamMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.09, depthWrite: false, side: THREE.DoubleSide });
-      const beamGeo = new THREE.ConeGeometry(0.8, 6.8, 12, 1, true);
+      const beamMat = new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide });
+      const beamGeo = new THREE.ConeGeometry(0.55, 4.6, 10, 1, true);
       [-0.62, 0.62].forEach(hx => {
         const beam = new THREE.Mesh(beamGeo, beamMat);
         beam.rotation.x = -Math.PI / 2 - 0.045;
-        beam.position.set(hx, 0.6, 5.4);
+        beam.position.set(hx, 0.6, 4.4);
         group.add(beam);
       });
       if (!isPolice) {
@@ -2239,7 +2239,7 @@
     }
 
     const peds = [];
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 10; i++) {
       const b = buildings[Math.floor(Math.random() * buildings.length)];
       if (!b) break;
       peds.push({
@@ -2264,9 +2264,12 @@
 
     const trafficCars = [];
     const trafficPalette = [0xc0c4cc, 0x33415c, 0x7f5539, 0x386641, 0x6a4c93, 0xbc4749, 0x219ebc, 0xe36414, 0x8ecae6];
-    const trafficBlocks = [[0, 0], [-100, -50], [100, 50], [-50, 100], [150, -100], [-150, 150], [50, -150], [-200, -200], [200, 200]];
+    const trafficBlocks = [[0, 0], [-100, -50], [100, 50], [-50, 100], [150, -100], [-150, 150], [50, -150]];
     trafficBlocks.forEach(([bx, bz], i) => {
       const mesh = createVehicleMesh(trafficPalette[i % trafficPalette.length], 'standard', i % 3);
+      const killLights = [];
+      mesh.traverse(o => { if (o.isPointLight) killLights.push(o); });
+      killLights.forEach(l => l.parent.remove(l));
       trafficCars.push({ mesh, bx, bz, corner: i % 4, x: bx - 25, z: bz - 25, speed: 0.3 + (i % 3) * 0.05, rot: Math.PI / 2 });
     });
 
