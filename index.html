@@ -235,6 +235,7 @@
         <button id="btn-char" class="hud-btn gold">Maya</button>
         <button id="btn-outfit" class="hud-btn secondary">Outfit</button>
         <button id="btn-radio" class="hud-btn green">Radio: ON</button>
+        <button id="btn-gfx" class="hud-btn">GFX: HIGH</button>
         <button id="btn-next-lvl" class="hud-btn gold">Next Lvl</button>
         <button id="btn-copy-link" class="hud-btn secondary">Invite</button>
         <input id="room-input" placeholder="CODE" maxlength="10" />
@@ -662,6 +663,7 @@
     }
 
     const buildings = [];
+    const colliders = []; // V4.2 solid-object colliders (filled during world gen)
     const neonColors = [0xff2a85, 0x00f0ff, 0xffd700, 0x9d4edd];
     const windowTextures = neonColors.map(c => createWindowTexture(c));
     const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -773,6 +775,7 @@
       dump.castShadow = true;
       dump.receiveShadow = true;
       scene.add(dump);
+      colliders.push({ x: dump.position.x, z: dump.position.z, r: 1.5 });
       dumpsPlaced++;
     }
     let cratesPlaced = 0;
@@ -784,6 +787,7 @@
       crate.rotation.y = seededRandom() * Math.PI;
       crate.castShadow = true;
       scene.add(crate);
+      colliders.push({ x: crate.position.x, z: crate.position.z, r: 0.85 });
       cratesPlaced++;
     }
     for (let i = 0; i < 34; i++) {
@@ -1779,6 +1783,18 @@
       if (gameStarted) showToast(active ? 'SUNCREST FM SYNTHWAVE ON' : 'RADIO MUTED', '#00f0ff');
     }
     radioBtn.addEventListener('click', toggleRadioState);
+
+    // V4.2: graphics quality toggle — LOW turns shadows off + pixel ratio 1 for weak devices
+    let gfxHigh = true;
+    const gfxBtn = document.getElementById('btn-gfx');
+    function toggleGfx() {
+      gfxHigh = !gfxHigh;
+      dirLight.castShadow = gfxHigh;
+      renderer.setPixelRatio(gfxHigh ? Math.min(window.devicePixelRatio, 1.5) : 1);
+      if (gfxBtn) gfxBtn.textContent = gfxHigh ? 'GFX: HIGH' : 'GFX: LOW';
+      showToast(gfxHigh ? 'GRAPHICS: HIGH' : 'GRAPHICS: LOW (SMOOTHER)', '#00f0ff');
+    }
+    if (gfxBtn) gfxBtn.addEventListener('click', toggleGfx);
     titleRadioBtn.addEventListener('click', toggleRadioState);
 
     function swapTrunkOutfit() {
@@ -2136,6 +2152,20 @@
       return false;
     }
 
+    // V4.2: streetlights + beach palms are solid too (props were pushed during world gen)
+    for (let gx = -450; gx <= 450; gx += 100) {
+      for (let gz = -450; gz <= 450; gz += 100) colliders.push({ x: gx + 11, z: gz + 11, r: 0.55 });
+    }
+    for (let pz = -450; pz <= 450; pz += 45) colliders.push({ x: 485, z: pz, r: 0.65 });
+    function hitsObject(nx, nz, rad = 0) {
+      for (const c of colliders) {
+        const rr = c.r + rad;
+        const dx = nx - c.x, dz = nz - c.z;
+        if (dx * dx + dz * dz < rr * rr) return true;
+      }
+      return false;
+    }
+
     const radarCanvas = document.getElementById('radar');
     const rCtx = radarCanvas.getContext('2d');
 
@@ -2315,6 +2345,13 @@
         tc.mesh.position.set(tc.x - Math.cos(tc.rot) * 4.2, 0, tc.z + Math.sin(tc.rot) * 4.2);
         tc.mesh.rotation.y = tc.rot;
         if (tc.mesh.userData.wheels) tc.mesh.userData.wheels.forEach(w => { w.rotation.x += sp * 0.55; });
+        // V4.2: traffic cars are solid — bumping one bounces the player (with cooldown)
+        if ((tc.bumpCd || 0) > 0) tc.bumpCd--;
+        if (player.mode === 'car' && player.currentCar && (tc.bumpCd || 0) <= 0 &&
+            Math.hypot(player.x - tc.mesh.position.x, player.z - tc.mesh.position.z) < 3.4) {
+          player.currentCar.speed *= -0.45;
+          tc.bumpCd = 40;
+        }
       }
     }
 
@@ -2422,7 +2459,7 @@
         const nx = c.x + Math.sin(c.rot) * c.speed;
         const nz = c.z + Math.cos(c.rot) * c.speed;
 
-        const validTerrain = isBoat ? (nx > WATER_LINE_X - 2) : (nx < WATER_LINE_X + 3 && !hitsBuilding(nx, nz));
+        const validTerrain = isBoat ? (nx > WATER_LINE_X - 2) : (nx < WATER_LINE_X + 3 && !hitsBuilding(nx, nz) && !hitsObject(nx, nz, 0.95));
         if (validTerrain) {
           c.x = nx;
           c.z = nz;
@@ -2461,7 +2498,7 @@
 
         const nx = player.x + Math.sin(player.rot) * move;
         const nz = player.z + Math.cos(player.rot) * move;
-        if (!hitsBuilding(nx, nz, -0.7) && nx < WATER_LINE_X + 4) {
+        if (!hitsBuilding(nx, nz, -0.7) && !hitsObject(nx, nz, 0.15) && nx < WATER_LINE_X + 4) {
           player.x = nx;
           player.z = nz;
         }
@@ -2548,7 +2585,7 @@
         if (!v.isNPC || v.speed === 0) continue;
         const nx = v.x + Math.sin(v.rot) * v.speed;
         const nz = v.z + Math.cos(v.rot) * v.speed;
-        if (hitsBuilding(nx, nz) || Math.abs(nx) > 440 || Math.abs(nz) > 440) {
+        if (hitsBuilding(nx, nz) || hitsObject(nx, nz, 0.95) || Math.abs(nx) > 440 || Math.abs(nz) > 440) {
           v.rot += Math.PI / 2;
         } else {
           v.x = nx;
@@ -2569,6 +2606,17 @@
         }
       }
 
+      // V4.2: parked cars are solid too (no ghosting through them)
+      if (player.mode === 'car' && player.currentCar && player.currentCar.y < 0.5) {
+        for (const v of vehicles) {
+          if (v === player.currentCar || v.type === 'boat' || v.speed !== 0) continue;
+          if (Math.hypot(player.x - v.x, player.z - v.z) < 3.4) {
+            player.currentCar.speed *= -0.45;
+            break;
+          }
+        }
+      }
+
       // E. Pursuit Chase AI + Level 5 Reinforcement Fix
       if (campaign.level === 5 && campaign.copsDisabled < 2 && player.wanted < 3) {
         setWanted(3);
@@ -2580,13 +2628,23 @@
         const dist = Math.hypot(dx, dz);
         p.rot = Math.atan2(dx, dz);
 
-        const nx = p.x + Math.sin(p.rot) * p.speed;
-        const nz = p.z + Math.cos(p.rot) * p.speed;
-        if (!hitsBuilding(nx, nz) && nx < WATER_LINE_X - 2) {
+        // V4.2: cops hold off at 3.4 units instead of ramming into the player, and respect solid objects
+        const step = dist > 3.4 ? p.speed : 0;
+        const nx = p.x + Math.sin(p.rot) * step;
+        const nz = p.z + Math.cos(p.rot) * step;
+        if (step > 0 && !hitsBuilding(nx, nz) && !hitsObject(nx, nz, 0.95) && nx < WATER_LINE_X - 2) {
           p.x = nx;
           p.z = nz;
-        } else {
-          p.x += Math.cos(p.rot) * p.speed;
+        } else if (step > 0) {
+          p.x += Math.cos(p.rot) * step;
+        }
+        // V4.2: a cop can never overlap the player's car
+        if (player.mode === 'car') {
+          const sep = Math.hypot(player.x - p.x, player.z - p.z);
+          if (sep < 2.7 && sep > 0.01) {
+            p.x = player.x - (player.x - p.x) / sep * 2.7;
+            p.z = player.z - (player.z - p.z) / sep * 2.7;
+          }
         }
         p.mesh.position.set(p.x, 0, p.z);
         p.mesh.rotation.y = p.rot;
@@ -2598,12 +2656,20 @@
         p.mesh.userData.redBar.visible = flash;
         p.mesh.userData.blueBar.visible = !flash;
 
-        if (dist < 3.6 && (player.mode === 'foot' || (player.currentCar.y < 0.5 && Math.abs(player.currentCar.speed) < 0.25))) {
-          const lostCash = player.dirtyCash;
-          player.dirtyCash = 0;
-          updateMoneyHUD();
-          setWanted(campaign.level === 5 ? 3 : 0);
-          showToast(`CAPTURED! LOST $${lostCash.toLocaleString()} UNBANKED CASH`, '#ff0044');
+        // V4.2: bust meter — capture only after ~1.5s held stopped beside a cop (fair chance to escape)
+        if (dist < 3.8 && (player.mode === 'foot' || (player.currentCar.y < 0.5 && Math.abs(player.currentCar.speed) < 0.25))) {
+          player.bustMeter = (player.bustMeter || 0) + 1;
+          if (player.bustMeter === 45) showToast('THEY ARE ABOUT TO BUST YOU - DRIVE!', '#ff9e00');
+          if (player.bustMeter >= 90) {
+            player.bustMeter = 0;
+            const lostCash = player.dirtyCash;
+            player.dirtyCash = 0;
+            updateMoneyHUD();
+            setWanted(campaign.level === 5 ? 3 : 0);
+            showToast(`CAPTURED! LOST $${lostCash.toLocaleString()} UNBANKED CASH`, '#ff0044');
+          }
+        } else if (player.bustMeter) {
+          player.bustMeter = Math.max(0, player.bustMeter - 2);
         }
       }
 
